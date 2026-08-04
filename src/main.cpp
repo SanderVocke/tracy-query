@@ -1,64 +1,36 @@
-#include <exception>
+#include <csignal>
 #include <iostream>
-#include <memory>
-#include <string_view>
+#include <vector>
 
-#include <TracyFileRead.hpp>
-#include <TracyWorker.hpp>
-
-namespace {
-
-void print_usage(std::ostream& output, const std::string_view program) {
-    output << "Usage: " << program << " <trace-file>\n"
-           << "Load a Tracy 0.13.1-compatible trace and exit.\n";
-}
-
-}  // namespace
+#include "tracy_query/cli.hpp"
+#include "tracy_query/commands.hpp"
+#include "tracy_query/output.hpp"
+#include "tracy_query/trace.hpp"
 
 int main(const int argc, char* argv[]) {
-    const std::string_view program = argc > 0 ? argv[0] : "tracy-query";
+#ifdef SIGPIPE
+    std::signal(SIGPIPE, SIG_IGN);
+#endif
 
-    if (argc == 2 && (std::string_view{argv[1]} == "-h" ||
-                      std::string_view{argv[1]} == "--help")) {
-        print_usage(std::cout, program);
-        return 0;
-    }
-
-    if (argc != 2) {
-        print_usage(std::cerr, program);
-        return 2;
+    const auto parsed = tracy_query::parse_cli(argc, argv);
+    if (parsed.should_exit) {
+        (parsed.message_to_stderr ? std::cerr : std::cout) << parsed.message;
+        return parsed.exit_code;
     }
 
     try {
-        auto trace = std::unique_ptr<tracy::FileRead>{tracy::FileRead::Open(argv[1])};
-        if (!trace) {
-            std::cerr << "tracy-query: cannot open trace file: " << argv[1] << '\n';
-            return 1;
-        }
-
-        // Worker parses the complete capture in its file-loading constructor.
-        const tracy::Worker worker{*trace};
-    } catch (const tracy::NotTracyDump&) {
-        std::cerr << "tracy-query: not a Tracy trace file: " << argv[1] << '\n';
-        return 1;
-    } catch (const tracy::UnsupportedVersion& error) {
-        std::cerr << "tracy-query: unsupported trace version " << error.version << ": "
-                  << argv[1] << '\n';
-        return 1;
-    } catch (const tracy::LegacyVersion& error) {
-        std::cerr << "tracy-query: legacy trace version " << error.version
-                  << " is not supported: " << argv[1] << '\n';
-        return 1;
-    } catch (const tracy::LoadFailure& error) {
-        std::cerr << "tracy-query: failed to load trace: " << error.msg << '\n';
-        return 1;
-    } catch (const tracy::FileReadError&) {
-        std::cerr << "tracy-query: failed to read trace file: " << argv[1] << '\n';
+        std::vector<tracy_query::Trace> traces;
+        traces.reserve(parsed.options->traces.size());
+        for (const auto& input : parsed.options->traces) traces.emplace_back(input);
+        return tracy_query::run_command(*parsed.options, traces, std::cout, std::cerr);
+    } catch (const tracy_query::OutputError&) {
+        // A closed stdout pipe is a normal consumer-driven termination.
+        return 0;
+    } catch (const tracy_query::TraceLoadError& error) {
+        std::cerr << "tracy-query: " << error.what() << '\n';
         return 1;
     } catch (const std::exception& error) {
-        std::cerr << "tracy-query: failed to load trace: " << error.what() << '\n';
+        std::cerr << "tracy-query: " << error.what() << '\n';
         return 1;
     }
-
-    return 0;
 }

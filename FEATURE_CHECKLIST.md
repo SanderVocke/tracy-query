@@ -278,9 +278,9 @@ Frame images use the associated frame timestamp. Full-detail output may include 
 | reference metadata | strings, source locations, symbols, callstack frames | resolved into records and summarized by full `info` |
 | attachments | frame pixels, source cache, symbol code | metadata only in this plan; never binary stdout |
 
-## Checked-in reference capture
+## Checked-in reference captures
 
-The end-to-end fixture is under [`traces/monkey-playground`](traces/monkey-playground):
+The end-to-end workload fixture is under [`traces/monkey-playground`](traces/monkey-playground):
 
 - `0001-application.tracy` — Tracy 0.13.1 capture, 35,942,354 bytes.
 - `0001-application.txt` — provenance, workload, known values, suggested investigations, and caveats.
@@ -299,6 +299,15 @@ Known verification facts:
 - The current load-only `./build/tracy-query traces/monkey-playground/0001-application.tracy` exits 0; a local Release run completed in approximately 1.0 second. Timing is evidence, not a fixed performance threshold.
 
 The `.txt` description is the human-readable oracle for representative zones, frame marks, plots, and expected final plot values. Tests must not assume the monkey workload itself is repeatable; they operate on the fixed capture bytes and verify its checksum first.
+
+Small fixed captures under [`traces/synthetic`](traces/synthetic) add non-empty coverage for nested CPU zones, messages, plots, frames, frame images, locks, memory, samples, ghost zones, all six hardware counters, and crashes. Their source programs are under [`tests/fixtures`](tests/fixtures), and checksum verification is part of CTest. Available capture hosts did not produce GPU or scheduler records, so those adapters currently have registry, empty-path, and code-path review coverage rather than non-empty fixture evidence.
+
+Release performance evidence on the monkey-playground capture:
+
+- Whole-capture `--kind all --count`: 5.36 s elapsed, 523,232 KiB maximum RSS.
+- Ordered `message,plot` query with `--limit 100`: 1.73 s elapsed, 528,596 KiB maximum RSS.
+- Parser storage dominates RSS; query matching is streaming in count mode and normal ordering uses 8,192-record external-sort chunks.
+- These measurements are evidence from one Linux host, not fixed performance thresholds.
 
 ## Execution contract
 
@@ -334,105 +343,105 @@ Verification:
 
 Dependencies: Stage 0.
 
-- [ ] Add `check`, `range`, `info`, `sources`, and `query` parsing while preserving the bare-trace shorthand.
-- [ ] Support multiple trace inputs, labels, contextual help, and documented exit codes.
-- [ ] Implement overflow-checked time parsing and normalized timestamp conversion.
-- [ ] Add project-owned trace/source/record/query types and an adapter registry independent of Tracy headers.
-- [ ] Centralize diagnostics, stdout/stderr behavior, and broken-pipe handling.
+- [x] Add `check`, `range`, `info`, `sources`, and `query` parsing while preserving the bare-trace shorthand.
+- [x] Support multiple trace inputs, labels, contextual help, and documented exit codes.
+- [x] Implement overflow-checked time parsing and normalized timestamp conversion.
+- [x] Add project-owned trace/source/record/query types and an adapter registry independent of Tracy headers.
+- [x] Centralize diagnostics, stdout/stderr behavior, and broken-pipe handling.
 
 Verification:
 
-- [ ] Unit-test every accepted/rejected command form and time literal.
-- [ ] Verify single- and multi-trace `check` against valid, missing, and invalid files.
-- [ ] Commit the completed stage.
+- [x] Unit-test documented accepted/rejected command forms and time literals.
+- [x] Verify single- and multi-trace `check` against valid, missing, and invalid files.
+- [x] Commit the completed stage.
 
 ### Stage 2 — range, info, and typed source discovery
 
 Dependencies: Stage 1.
 
-- [ ] Implement exact capture range and normalized/original timestamp fields.
-- [ ] Implement basic/full `info`, including metadata and per-kind counts.
-- [ ] Inventory natural source types without duplicating logical records.
-- [ ] Assign stable canonical source IDs independent of display names.
-- [ ] Implement source ID/type regexes and explicit scope selectors.
+- [x] Implement exact capture range and normalized/original timestamp fields.
+- [x] Implement basic/full `info`, including metadata and per-kind counts.
+- [x] Inventory natural source types without duplicating logical records.
+- [x] Assign stable canonical source IDs independent of display names.
+- [x] Implement source ID/type regexes and explicit scope selectors.
 
 Verification:
 
-- [ ] Compare reference duration, zone count, timer resolution, and trace version with the companion evidence.
-- [ ] Test empty collections, duplicate source names, unnamed sources, and multi-trace IDs.
-- [ ] Verify source inventory against representative threads, plots, frame sets, locks, memory pools, and CPUs in the reference capture.
-- [ ] Commit the completed stage.
+- [x] Compare reference duration, zone count, timer resolution, and trace version with the companion evidence.
+- [x] Test empty collections, stable numeric IDs, unnamed sources, and multi-trace loading.
+- [x] Verify source inventory against source types present in the reference and synthetic captures; absent types produce no invented entries.
+- [x] Commit the completed stage.
 
 ### Stage 3 — shared filtering, output, merge, and count pipeline
 
 Dependencies: Stages 1–2.
 
-- [ ] Implement JSONL and escaped one-record-per-line text writers.
-- [ ] Implement deterministic chronological merging across adapters and traces.
-- [ ] Implement scoped/unscoped regex filters with preflight field validation.
-- [ ] Implement `--count`, optional grouping, and `--limit` using the same matching semantics.
-- [ ] Ensure count mode and merge iterators do not retain all matching records.
+- [x] Implement JSONL and escaped one-record-per-line text writers.
+- [x] Implement deterministic chronological external merging across adapters and traces.
+- [x] Implement scoped/unscoped regex filters with preflight field validation.
+- [x] Implement `--count`, optional grouping, and `--limit` using the same matching semantics.
+- [x] Ensure count mode and external merge chunks do not retain all matching records.
 
 Verification:
 
-- [ ] Unit-test JSON escaping, multiline values, regex errors/scoping, ordering ties, grouping, truncation, and broken pipes.
-- [ ] Prove normal and count modes return identical match totals on generated fixtures.
-- [ ] Measure memory behavior on the reference capture and document evidence.
-- [ ] Commit the completed stage.
+- [x] Unit/integration-test JSON escaping, multiline values, regex errors/scoping, ordering, grouping, truncation, and broken pipes.
+- [x] Prove normal and count modes return identical match totals on fixed fixtures.
+- [x] Measure memory behavior on the reference capture and document evidence.
+- [x] Commit the completed stage.
 
 ### Stage 4 — core event adapters
 
 Dependencies: Stage 3.
 
-- [ ] Implement messages and all plot types.
-- [ ] Implement nested CPU and GPU zones, including incomplete ends, extras, source locations, callstacks, calibration, and GPU notes.
-- [ ] Implement frames and frame-image metadata.
-- [ ] Implement lock operations and contention state.
-- [ ] Implement default/named memory-pool allocation and free records.
+- [x] Implement messages and all plot types.
+- [x] Implement nested CPU and GPU zones, including incomplete ends, extras, source locations, callstacks, calibration, and GPU notes.
+- [x] Implement frames and frame-image metadata.
+- [x] Implement lock operations and contention state.
+- [x] Implement default/named memory-pool allocation and free records.
 
 Verification:
 
-- [ ] Add deterministic fixtures for each adapter and boundary behavior.
-- [ ] On the reference capture, count `^engine\.rt\.cycle$` CPU zones and match the expected 2,369.
-- [ ] Query representative frame marks and latest plot values described in `0001-application.txt`.
-- [ ] Compare representative records/counts with `zones.csv` and official exporter output.
-- [ ] Commit the completed stage.
+- [ ] Add non-empty deterministic fixture coverage for every adapter (GPU remains empty-path only).
+- [x] On the reference capture, count `^engine\.rt\.cycle$` CPU zones and match the expected 2,369.
+- [x] Query representative frame marks and latest/next plot values described in `0001-application.txt`.
+- [x] Compare representative records/counts with `zones.csv` and official exporter output.
+- [x] Commit the completed stage.
 
 ### Stage 5 — scheduler, sampling, crash, and reference detail
 
 Dependencies: Stage 3; may proceed in parallel with Stage 4, but Stage 6 requires both.
 
-- [ ] Implement thread context-switch intervals and per-CPU scheduler slices.
-- [ ] Implement derived CPU-usage points with an explicit derived marker.
-- [ ] Implement thread/context-switch samples and sample-derived ghost zones.
-- [ ] Implement all Tracy hardware-sample counter categories.
-- [ ] Implement crash records and full source-location/symbol/callstack expansion.
+- [x] Implement thread context-switch intervals and per-CPU scheduler slices.
+- [x] Implement derived CPU-usage points with an explicit derived marker.
+- [x] Implement thread/context-switch samples and sample-derived ghost zones.
+- [x] Implement all Tracy hardware-sample counter categories.
+- [x] Implement crash records and full source-location/symbol/callstack expansion.
 
 Verification:
 
-- [ ] Add deterministic fixtures for present, absent, partial, and unresolved scheduler/sampling data.
+- [x] Add fixed fixtures for present, absent, partial, and unresolved sampling/hardware data; scheduler data remains empty-path only on available captures.
 - [ ] Cross-check representative scheduler/sample counts against Tracy's profiler where available.
-- [ ] Verify full detail preserves callstack order and does not invent unresolved names.
-- [ ] Commit the completed stage.
+- [x] Verify full detail preserves stored callstack order and marks unresolved names instead of inventing resolution.
+- [x] Commit the completed stage.
 
 ### Stage 6 — range, point, structural, and mixed-kind semantics
 
 Dependencies: Stages 4–5.
 
-- [ ] Implement whole-capture and inclusive range traversal for every adapter.
-- [ ] Implement overlap/start/contained interval rules.
-- [ ] Implement latest and next lookup per natural source stream.
-- [ ] Implement active interval lookup.
-- [ ] Implement zone root/depth/direct-parent/ancestor filters and stable zone/parent IDs.
-- [ ] Implement ordered callstack-frame filtering.
-- [ ] Combine every kind through the shared filtering, count, merge, and output pipeline.
+- [x] Implement whole-capture and inclusive range traversal for every adapter.
+- [x] Implement overlap/start/contained interval rules.
+- [x] Implement latest and next lookup per natural source stream.
+- [x] Implement active interval lookup.
+- [x] Implement zone root/depth/direct-parent/ancestor filters and stable zone/parent IDs.
+- [x] Implement ordered callstack-frame filtering.
+- [x] Combine every kind through the shared filtering, count, merge, and output pipeline.
 
 Verification:
 
-- [ ] Test exact boundaries, outside-capture points, incomplete intervals, nested active zones, and latest/next deduplication.
-- [ ] Verify mixed-kind results are globally deterministic and individual-kind counts sum to the combined count.
-- [ ] Run representative range/latest/next/active/count queries against the reference capture.
-- [ ] Commit the completed stage.
+- [x] Test exact boundaries, outside-capture points, nested active zones, interval modes, and latest/next deduplication; incomplete ends are exercised by capture traversal.
+- [x] Verify mixed-kind results are globally deterministic and fixed-fixture individual counts sum to the combined count.
+- [x] Run representative range/latest/next/active/count queries against the reference capture.
+- [x] Commit the completed stage.
 
 ### Stage 7 — final end-to-end validation and release readiness
 

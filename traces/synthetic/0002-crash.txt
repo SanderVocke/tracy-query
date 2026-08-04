@@ -1,0 +1,21 @@
+TRACY-QUERY SYNTHETIC CRASH FIXTURE
+===================================
+
+File: 0002-crash.tracy
+Tracy: 0.13.1
+Source: ../../tests/fixtures/tracy_crash_fixture.cpp
+
+Expected records
+----------------
+
+- Messages: 1 (`fixture crash incoming`)
+- Crash events: 1
+- Crash thread name: `Main thread`
+- Crash message begins with `Abort signal from abort().`
+- Crash callstack ID is present
+
+The fixed trace was captured by Tracy 0.13.1 after the fixture deliberately
+called `std::abort()`. The source was compiled with `TRACY_ENABLE` and
+`TRACY_NO_SYSTEM_TRACING`; the executable's non-zero exit is intentional.
+Runtime timestamps, PID, host metadata, and binary bytes are not reproducible.
+Repository tests use the checksummed capture bytes.

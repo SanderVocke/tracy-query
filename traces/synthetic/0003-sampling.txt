@@ -1,0 +1,21 @@
+TRACY-QUERY SYNTHETIC SAMPLING FIXTURE
+======================================
+
+File: 0003-sampling.tracy
+Tracy: 0.13.1
+Source: ../../tests/fixtures/tracy_core_fixture.cpp
+
+This capture used the same fixed core workload as `0001-core.tracy`, but the
+client was compiled without `TRACY_NO_SYSTEM_TRACING`. On the capture host this
+produced deterministic data in the fixed trace bytes for:
+
+- Samples: 1,757
+- Sample-derived ghost zones: 1,705
+- Hardware samples: 8,059 across all six hardware-counter categories
+
+The host did not provide context-switch events, so context-switch, CPU-slice,
+and CPU-usage adapters still use empty-path coverage for this fixture.
+
+Runtime reproduction depends on Linux profiling permissions and hardware. The
+checked-in trace and checksum, rather than a newly captured run, are the test
+oracle.

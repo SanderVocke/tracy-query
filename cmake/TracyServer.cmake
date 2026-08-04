@@ -24,6 +24,24 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(tracy_0131 tracy_ppqsort)
 
+# Tracy 0.13.1 exposes hardware-sample lookup by address but not iteration. Add
+# one read-only accessor at the pinned integration boundary so the hardware
+# adapter can provide complete source discovery and queries. Keep the patch
+# narrow and idempotent; a Tracy upgrade must revalidate this exact seam.
+set(_tracy_worker_header "${tracy_0131_SOURCE_DIR}/server/TracyWorker.hpp")
+file(READ "${_tracy_worker_header}" _tracy_worker_contents)
+if(NOT _tracy_worker_contents MATCHES "GetHwSampleMapForQuery")
+    string(REPLACE
+        "    HwSampleData* GetHwSampleData( uint64_t addr );"
+        "    HwSampleData* GetHwSampleData( uint64_t addr );\n    const unordered_flat_map<uint64_t, HwSampleData>& GetHwSampleMapForQuery() const { return m_data.hwSamples; }"
+        _tracy_worker_contents
+        "${_tracy_worker_contents}"
+    )
+    file(WRITE "${_tracy_worker_header}" "${_tracy_worker_contents}")
+endif()
+unset(_tracy_worker_contents)
+unset(_tracy_worker_header)
+
 set(CAPSTONE_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(CAPSTONE_BUILD_STATIC_LIBS ON CACHE BOOL "" FORCE)
 set(CAPSTONE_BUILD_LEGACY_TESTS OFF CACHE BOOL "" FORCE)

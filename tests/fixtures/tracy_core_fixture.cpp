@@ -1,0 +1,51 @@
+#include <chrono>
+#include <cstdlib>
+#include <mutex>
+#include <thread>
+#include "tracy/Tracy.hpp"
+#include "client/TracyProfiler.hpp"
+
+static TracyLockable(std::mutex, fixture_mutex);
+
+int main() {
+    tracy::SetThreadName("fixture-main");
+    for (int i = 0; i < 500 && !TracyIsConnected; ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    if (!TracyIsConnected) return 2;
+
+    TracyMessageL("fixture message");
+    TracyPlot("fixture.plot", 1.25);
+    FrameMarkStart("fixture.frame");
+    {
+        ZoneScopedN("fixture.root");
+        ZoneText("fixture zone text", 17);
+        {
+            ZoneScopedN("fixture.child");
+            std::lock_guard<LockableBase(std::mutex)> guard(fixture_mutex);
+            LockMark(fixture_mutex);
+            auto* memory = std::malloc(64);
+            TracyAllocN(memory, 64, "fixture.pool");
+            TracyFreeN(memory, "fixture.pool");
+            std::free(memory);
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        }
+    }
+    FrameMarkEnd("fixture.frame");
+    const unsigned char image[64] = {
+        255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255,
+        255, 255, 0, 255, 0, 255, 255, 255, 255, 0, 255, 255, 64, 64, 64, 255,
+        128, 0, 0, 255, 0, 128, 0, 255, 0, 0, 128, 255, 128, 128, 128, 255,
+        255, 128, 0, 255, 0, 128, 255, 255, 128, 0, 255, 255, 32, 32, 32, 255,
+    };
+    FrameImage(image, 4, 4, 0, false);
+    FrameMark;
+    TracyPlot("fixture.plot", 2.5);
+    TracyMessageL("fixture done");
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    tracy::GetProfiler().RequestShutdown();
+    while (!tracy::GetProfiler().HasShutdownFinished()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    return 0;
+}

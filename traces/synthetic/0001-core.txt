@@ -1,0 +1,42 @@
+TRACY-QUERY SYNTHETIC CORE FIXTURE
+==================================
+
+File: 0001-core.tracy
+Tracy: 0.13.1
+Purpose: small, fixed integration fixture for adapters absent from the larger
+monkey-playground capture.
+
+Expected logical records
+------------------------
+
+- CPU zones: 2 (`fixture.root` containing `fixture.child`)
+- Messages: 2 (`fixture message`, `fixture done`)
+- User plot points: 2 on `fixture.plot` (1.25, 2.5)
+- Named frames: 1 on `fixture.frame`
+- Frame images: 1 associated with the default frame set (4 × 4 pixels)
+- Lock events: 3 (wait, obtain, release) for `fixture_mutex`
+- Named memory pool: `fixture.pool`
+- Memory events: 1 allocation and 1 free, size 64
+
+Tracy also creates default frame and automatic memory/system plot records. Tests
+should scope by names when asserting the explicit records above.
+
+The fixture intentionally disables system tracing and therefore contains no
+scheduler, sampling, hardware-counter, GPU, or crash records.
+
+Provenance
+----------
+
+Source: ../../tests/fixtures/tracy_core_fixture.cpp
+
+The source was compiled against the pinned Tracy 0.13.1 client with:
+
+  c++ -std=c++20 -O0 -g -DTRACY_ENABLE -DTRACY_NO_SYSTEM_TRACING \
+    -I<TRACY_SOURCE>/public \
+    tests/fixtures/tracy_core_fixture.cpp <TRACY_SOURCE>/public/TracyClient.cpp \
+    -pthread -ldl -o tracy-core-fixture
+
+A Tracy 0.13.1 `tracy-capture` process was started first, the fixture executable
+was run once, and the resulting bytes were checksummed in `sha256.txt`. Runtime
+timestamps, PID, host metadata, and binary bytes are not expected to be
+reproducible; repository tests use this fixed checked-in capture.
