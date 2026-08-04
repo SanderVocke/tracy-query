@@ -1,0 +1,2 @@
+sequence	source_qml	capture_file	started_unix_ms	ended_unix_ms	status	test_outcome
+1	application	0001-application.tracy	1785828331027	1785828347833	exit status: 0	not_applicable

@@ -1,0 +1,187 @@
+SHOOPDALOOP MONKEY-TEST TRACY CAPTURE
+=====================================
+
+Trace file
+----------
+File:       0001-application.tracy
+Size:       35,942,354 bytes (34.27 MiB as reported by tracy-capture)
+SHA-256:    7b20e50534b1b3f2da094602af0a2f6c8049056a9e9bfcc91fae1964de07c765
+Tracy:      0.13.1
+Commit:     acf949f76525b9876323b30dde4495a47407b648
+Date:       2026-08-04
+Duration:   16.31 seconds
+Zones:      617,218
+Timer:      10 ns resolution
+Parse test: Tracy 0.13.1 tracy-csvexport completed successfully with empty stderr
+
+The command requested a 30-second auto-quit. This random monkey run ended
+cleanly earlier, so the finalized trace contains 16.31 seconds. It includes
+application startup and shutdown and is still long enough to contain heavy
+session mutation, graph rebuilding, recording/playback transitions, and DSP
+processing.
+
+Invocation
+----------
+
+  target/release-with-debug/shoopdaloop_dev.sh \
+    --no-crash-handling \
+    --backend dummy \
+    --monkey-tester \
+    --quit-after 30 \
+    --tracing-capture \
+    --tracing-engine-detail \
+    --tracing-capture-tool "$(command -v tracy-capture)" \
+    --tracing-capture-output-dir traces/monkey-playground
+
+Workload
+--------
+
+The QML MonkeyTester randomly and rapidly added/removed tracks and loops and
+requested recording and playback transitions. The dummy backend ran at:
+
+  sample rate: 48,000 Hz
+  buffer size: 256 frames
+  nominal callback period/budget: 5.333 ms
+
+This is a deliberately chaotic workload, not a repeatable benchmark. The trace
+uses detailed engine mode, so it contains considerably more zones than a normal
+coarse capture.
+
+What is in the trace
+--------------------
+
+Application/frontend layers:
+
+  app.lifecycle, app.qt.initialize, app.qt.event_loop, app.shutdown
+  frontend.application.initialize
+  frontend.qml/load/reload/unload and frontend.qml_engine.*
+  frontend.lua.*, frontend.file.read, frontend.schema.validate
+  frontend.control.loop_event and transition spans
+  frontend.backend.refresh and frontend.refresh.*
+  frontend loop/channel/port/FX state update spans
+
+Engine control and graph layers:
+
+  engine.control.queue/enqueue/drain/wait/result/reclaim
+  engine.control create session/port/channel/loop/FX operations
+  engine.control.transition_loops
+  engine.graph arm/build topology/build schedule/apply/flush
+  engine driver lifecycle and graph-scheduler worker spans
+
+Realtime hierarchy (look at the engine-dummy-driver thread):
+
+  engine.rt.driver
+    engine.rt.driver.dummy
+      engine.rt.pump / engine.rt.commands
+      engine.rt.callback
+        engine.rt.cycle
+          engine.rt.session
+            engine.rt.ports.prepare/process
+            engine.rt.channels.prepare/process
+            engine.rt.loops
+            engine.rt.composites.begin/timeline
+            engine.rt.midi.playback
+            engine.rt.routing.external
+            engine.rt.fx
+            engine.rt.state_publication
+          engine.rt.publish_trace
+
+Useful frame marks:
+
+  engine.callback
+  frontend.refresh
+
+Useful plots
+------------
+
+BackendWrapper plots include callback last/worst duration and budget overruns,
+cycles/frames, pending/applied commands, graph arms/applies, schedule generation,
+stale/stuck cycles, xruns, capture under/overruns, trace snapshot drops, and
+buffer/sample-rate state.
+
+Object plots include loop mode/position/next transition, channel mode, FX
+active/ready state, MIDI-control queue state, and frontend refresh queue delay.
+
+Final published values in this capture included:
+
+  cycles / frames:             2,311 / 591,616
+  commands applied:            2,939
+  pending commands:            0
+  graph arms / applies:        360 / 58
+  schedule request / applied:  330 / 330
+  stale cycles:                83
+  stuck cycles:                1
+  callback budget overruns:    0
+  xruns:                       0
+  capture under/overruns:      0 / 0
+  trace snapshots dropped:     2,308
+
+The high trace-snapshot drop count is expected evidence of this unusually busy
+detailed monkey run: bounded diagnostic snapshots were coalesced/dropped rather
+than blocking the realtime thread. Object/state plot history may therefore be
+incomplete even though the direct Tracy zone hierarchy is present.
+
+Indicative callback timings
+---------------------------
+
+For a steady 3-14 second portion (1,893 callbacks):
+
+  mean:    148.6 us
+  median:  147.4 us
+  p95:     205.5 us
+  p99:     242.5 us
+  maximum: 1.922 ms
+
+No callback exceeded the nominal 5.333 ms budget. The broader
+engine.rt.driver.dummy zone includes control pumping outside Engine::run_cycle;
+it had a 178 ms outlier during aggressive graph/control churn. Do not confuse
+that whole-thread/control-path stall with callback DSP duration.
+
+Suggested things to inspect
+---------------------------
+
+1. Select the engine-dummy-driver thread and follow
+   engine.rt.driver.dummy -> callback -> cycle -> session.
+2. Find the largest engine.rt.driver.dummy zones and correlate them with
+   engine.control.* and engine.graph.* activity on the main/scheduler threads.
+3. Compare engine.callback frame marks with frontend.refresh frame marks.
+4. Inspect callback_worst_ns, stale_cycles, graph_applies, schedule generation,
+   and trace_snapshots_dropped plots while the monkey mutates the graph.
+5. Zoom into session detail to compare ports, channels, loops, composites,
+   routing, MIDI, and FX work.
+
+Opening and exporting
+---------------------
+
+From the repository root:
+
+  tracy traces/monkey-playground/0001-application.tracy
+
+Aggregate zone summary:
+
+  tracy-csvexport traces/monkey-playground/0001-application.tracy > zones.csv
+
+Events and plots:
+
+  tracy-csvexport -u -p traces/monkey-playground/0001-application.tracy \
+    > events-and-plots.csv
+
+Companion files
+---------------
+
+  app.log             application/capture lifecycle and environment output
+  tracy-capture.log   capture metadata and save result
+  manifest.tsv        managed-capture result
+  zones.csv           pre-generated aggregate zone summary
+  sha256.txt          trace checksum
+  csvexport.log       empty on successful parse
+
+Caveats
+-------
+
+This was a headless dummy-backend debugging run. Mesa could not initialize the
+hardware driver and emitted expected offscreen/software-rendering warnings.
+Tracy may allocate, lock, change scheduling, increase memory use, or cause xruns
+on a real JACK/CPAL callback. This trace is useful for exploring causal and
+timing structure, but it is not an allocation-free or transparent realtime
+measurement and should not be used as a hardware performance guarantee.

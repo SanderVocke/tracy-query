@@ -1,0 +1,12 @@
+[2026-08-04T07:25:31.026434415Z] [main (ThreadId(1))] [Tracing.Capture] [INFO] Configured Tracy capture tool /nix/store/shpgfcilffh35vrlmpg34ggf8xfhhh63-tracy-wayland-0.13.1/bin/tracy-capture with output directory /home/sander/dev/shoopdaloop-3/traces/monkey-playground
+[2026-08-04T07:25:31.026488968Z] [main (ThreadId(1))] [Tracing.Capture] [INFO] Starting Tracy capture for "application": /nix/store/shpgfcilffh35vrlmpg34ggf8xfhhh63-tracy-wayland-0.13.1/bin/tracy-capture -o /home/sander/dev/shoopdaloop-3/traces/monkey-playground/0001-application.tracy
+[2026-08-04T07:25:31.052308101Z] [main (ThreadId(1))] [Tracing.Capture] [INFO] Tracy capture connected for "application"
+_amdgpu_device_initialize: amdgpu_get_auth (1) failed (-1)
+MESA: error: amdgpu: amdgpu_device_initialize failed.
+glx: failed to create dri3 screen
+failed to load driver: radeonsi
+[2026-08-04T07:25:32.046203763Z] [main (ThreadId(1))] [Frontend.SettingsIO] [INFO] No settings file found at /home/sander/.config/shoopdaloop/settings.json, using default values
+[2026-08-04T07:25:32.059166599Z] [main (ThreadId(1))] [Frontend.BackendWrapper] [INFO] Selected audio backend: Dummy
+[Frontend.Qml.Session] [info] Auto-quit scheduled for 30 seconds.
+[2026-08-04T07:25:47.081305110Z] [main (ThreadId(1))] [Tracing.Capture] [INFO] Stopping Tracy capture process 308271
+[2026-08-04T07:25:47.833559384Z] [main (ThreadId(1))] [Tracing.Capture] [INFO] Finalized Tracy capture /home/sander/dev/shoopdaloop-3/traces/monkey-playground/0001-application.tracy
