@@ -66,6 +66,7 @@ These criteria must not change without explicit user approval.
 - Results are ordered by normalized timestamp, input trace order, kind, canonical source ID, and original record sequence.
 - Duplicate Tracy storage views must not duplicate logical records; for example, choose one canonical traversal for globally and per-thread indexed messages.
 - Incomplete or unavailable Tracy fields are omitted or explicitly marked; they are never guessed.
+- [`README.md`](README.md) is the primary user-facing guide. Keep it concise, task-oriented, and current with supported installation, commands, examples, output, and limitations; implementation planning stays in this document.
 
 ## CLI contract
 
@@ -302,6 +303,7 @@ The `.txt` description is the human-readable oracle for representative zones, fr
 ## Execution contract
 
 - Keep this plan updated as work progresses and check off completed items.
+- Keep `README.md` user-focused and update it in the same milestone whenever user-visible behavior, setup, examples, output, or limitations change.
 - Commit each completed stage or meaningful milestone.
 - Implementation steps may be revised when new evidence warrants it.
 - Design rules may be revised for a documented, well-supported reason.
@@ -437,6 +439,7 @@ Verification:
 Dependencies: all prior stages.
 
 - [ ] Run formatting, static checks, unit tests, integration tests, and supported-platform CI.
+- [ ] Review `README.md` as a new user: verify setup, core commands, examples, output, and limitations match the implemented release.
 - [ ] Validate all acceptance criteria against small fixtures and the checksummed reference capture.
 - [ ] Compare representative results with Tracy 0.13.1's GUI or official exporters.
 - [ ] Benchmark whole-capture, narrow-range, point, mixed-kind, and count queries.
@@ -452,4 +455,5 @@ Final verification surface:
 - [ ] The `engine.rt.cycle` filtered CPU-zone count is exactly 2,369.
 - [ ] Mixed-kind normal output and grouped/ungrouped count output satisfy the immutable acceptance criteria.
 - [ ] The final end-to-end evidence is recorded in the plan or linked release notes.
+- [ ] `README.md` contains only current user-facing guidance and has no stale CLI examples or behavior claims.
 - [ ] Commit the completed stage or release milestone.
