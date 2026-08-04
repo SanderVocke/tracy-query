@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdio>
+#include <cstring>
 #include <functional>
 #include <map>
 #include <queue>
@@ -169,10 +170,12 @@ void visit_plots(Trace& trace, const Visitor& visitor) {
         const auto name = safe(worker.GetString(plot->name));
         const auto source = "plot:" + std::to_string(plot_index++);
         for (const auto& item : plot->data) {
+            double value = 0;
+            std::memcpy(&value, &item.val, sizeof(value));
             Record record{trace.normalize(item.time.Val()), {}, trace.input().label, source,
                           Kind::Plot, sequence++};
             record.fields = {{"name", name}, {"plot_type", plot_type(plot->type)},
-                             {"format", plot_format(plot->format)}, {"value", item.val}};
+                             {"format", plot_format(plot->format)}, {"value", value}};
             visitor(std::move(record));
         }
     }

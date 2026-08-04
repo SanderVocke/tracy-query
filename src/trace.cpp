@@ -26,11 +26,7 @@ Trace::Trace(TraceInput input) : input_{std::move(input)} {
         // The file constructor starts Tracy's post-load indexing tasks. Those tasks
         // traverse the same packed vectors exposed by Worker, so do not expose the
         // capture until every index required by query adapters is stable.
-        while (!worker_->AreSourceLocationZonesReady() ||
-               !worker_->AreGpuSourceLocationZonesReady() ||
-               !worker_->AreCallstackSamplesReady() ||
-               !worker_->AreGhostZonesReady() ||
-               !worker_->AreSymbolSamplesReady()) {
+        while (!worker_->IsBackgroundDone()) {
             std::this_thread::sleep_for(std::chrono::milliseconds{1});
         }
         first_time_ = worker_->GetFirstTime();

@@ -26,19 +26,37 @@ FetchContent_MakeAvailable(tracy_0131 tracy_ppqsort)
 
 # Tracy 0.13.1 exposes hardware-sample lookup by address but not iteration. Add
 # one read-only accessor at the pinned integration boundary so the hardware
-# adapter can provide complete source discovery and queries. Keep the patch
-# narrow and idempotent; a Tracy upgrade must revalidate this exact seam.
+# adapter can provide complete source discovery and queries. A second accessor
+# is available only to the synthetic fixture generator when it explicitly
+# defines TRACY_QUERY_FIXTURE_ACCESS. Keep this patch narrow and idempotent; a
+# Tracy upgrade must revalidate this exact seam.
 set(_tracy_worker_header "${tracy_0131_SOURCE_DIR}/server/TracyWorker.hpp")
 file(READ "${_tracy_worker_header}" _tracy_worker_contents)
+set(_tracy_query_accessors "    const unordered_flat_map<uint64_t, HwSampleData>& GetHwSampleMapForQuery() const { return m_data.hwSamples; }\n#ifdef TRACY_QUERY_FIXTURE_ACCESS\n    auto& GetMutableDataForFixture() { return m_data; }\n#endif")
 if(NOT _tracy_worker_contents MATCHES "GetHwSampleMapForQuery")
     string(REPLACE
         "    HwSampleData* GetHwSampleData( uint64_t addr );"
-        "    HwSampleData* GetHwSampleData( uint64_t addr );\n    const unordered_flat_map<uint64_t, HwSampleData>& GetHwSampleMapForQuery() const { return m_data.hwSamples; }"
+        "    HwSampleData* GetHwSampleData( uint64_t addr );\n${_tracy_query_accessors}"
         _tracy_worker_contents
         "${_tracy_worker_contents}"
     )
-    file(WRITE "${_tracy_worker_header}" "${_tracy_worker_contents}")
+elseif(_tracy_worker_contents MATCHES "    auto& GetMutableDataForFixture\\(\\) \\{ return m_data; \\}")
+    string(REPLACE
+        "    const unordered_flat_map<uint64_t, HwSampleData>& GetHwSampleMapForQuery() const { return m_data.hwSamples; }\n    auto& GetMutableDataForFixture() { return m_data; }"
+        "${_tracy_query_accessors}"
+        _tracy_worker_contents
+        "${_tracy_worker_contents}"
+    )
+elseif(NOT _tracy_worker_contents MATCHES "TRACY_QUERY_FIXTURE_ACCESS")
+    string(REPLACE
+        "    const unordered_flat_map<uint64_t, HwSampleData>& GetHwSampleMapForQuery() const { return m_data.hwSamples; }"
+        "${_tracy_query_accessors}"
+        _tracy_worker_contents
+        "${_tracy_worker_contents}"
+    )
 endif()
+file(WRITE "${_tracy_worker_header}" "${_tracy_worker_contents}")
+unset(_tracy_query_accessors)
 unset(_tracy_worker_contents)
 unset(_tracy_worker_header)
 

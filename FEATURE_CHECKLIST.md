@@ -300,7 +300,7 @@ Known verification facts:
 
 The `.txt` description is the human-readable oracle for representative zones, frame marks, plots, and expected final plot values. Tests must not assume the monkey workload itself is repeatable; they operate on the fixed capture bytes and verify its checksum first.
 
-Small fixed captures under [`traces/synthetic`](traces/synthetic) add non-empty coverage for nested CPU zones, messages, plots, frames, frame images, locks, memory, samples, ghost zones, all six hardware counters, and crashes. Their source programs are under [`tests/fixtures`](tests/fixtures), and checksum verification is part of CTest. Available capture hosts did not produce GPU or scheduler records, so those adapters currently have registry, empty-path, and code-path review coverage rather than non-empty fixture evidence.
+Small fixed captures under [`traces/synthetic`](traces/synthetic) add non-empty coverage for every adapter: nested CPU/GPU zones, messages, plots, frames, frame images, locks, memory, samples, ghost zones, all six hardware counters, crashes, context switches, CPU slices, and CPU usage. Their source/generator programs are under [`tests/fixtures`](tests/fixtures), checksum verification is part of CTest, and the platform-independent structural generator is round-tripped through Tracy's own writer and parser during tests.
 
 Release performance evidence on the monkey-playground capture:
 
@@ -401,7 +401,7 @@ Dependencies: Stage 3.
 
 Verification:
 
-- [ ] Add non-empty deterministic fixture coverage for every adapter (GPU remains empty-path only).
+- [x] Add non-empty fixed fixture coverage for every adapter, including a generated GPU/scheduler round trip.
 - [x] On the reference capture, count `^engine\.rt\.cycle$` CPU zones and match the expected 2,369.
 - [x] Query representative frame marks and latest/next plot values described in `0001-application.txt`.
 - [x] Compare representative records/counts with `zones.csv` and official exporter output.
@@ -419,8 +419,8 @@ Dependencies: Stage 3; may proceed in parallel with Stage 4, but Stage 6 require
 
 Verification:
 
-- [x] Add fixed fixtures for present, absent, partial, and unresolved sampling/hardware data; scheduler data remains empty-path only on available captures.
-- [ ] Cross-check representative scheduler/sample counts against Tracy's profiler where available.
+- [x] Add fixed fixtures for present, absent, partial, and unresolved sampling/hardware data plus generated scheduler data.
+- [x] Cross-check sampling/hardware counts against Tracy trace statistics and scheduler counts against the known generated structures.
 - [x] Verify full detail preserves stored callstack order and marks unresolved names instead of inventing resolution.
 - [x] Commit the completed stage.
 
@@ -459,7 +459,7 @@ Dependencies: all prior stages.
 Final verification surface:
 
 - [ ] `check`, `range`, `info`, `sources`, and all query temporal modes succeed on the reference capture.
-- [ ] Every coverage-matrix adapter has deterministic fixture coverage.
+- [x] Every coverage-matrix adapter has fixed non-empty fixture coverage.
 - [ ] Reference metadata matches 0.13.1, 10 ns resolution, 617,218 zones, and approximately 16.31 seconds.
 - [ ] The `engine.rt.cycle` filtered CPU-zone count is exactly 2,369.
 - [ ] Mixed-kind normal output and grouped/ungrouped count output satisfy the immutable acceptance criteria.

@@ -38,6 +38,15 @@ if(BUILD_TESTING)
     add_executable(tracy-query-unit-tests tests/unit.cpp)
     target_link_libraries(tracy-query-unit-tests PRIVATE tracy_query_core)
     add_test(NAME unit COMMAND tracy-query-unit-tests)
+
+    add_executable(
+        tracy-query-structural-fixture-generator
+        tests/fixtures/tracy_structural_fixture.cpp
+    )
+    target_link_libraries(
+        tracy-query-structural-fixture-generator
+        PRIVATE TracyQuery::TracyServer
+    )
     add_test(
         NAME fixture-checksums
         COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
@@ -251,4 +260,24 @@ if(BUILD_TESTING)
                  COMMAND tracy-query query --kind hardware-sample --count "${SAMPLING_TRACE}")
         set_tests_properties(cli-query-synthetic-hardware PROPERTIES PASS_REGULAR_EXPRESSION "\"count\":8059")
     endif()
+
+    set(STRUCTURAL_TRACE "${CMAKE_CURRENT_SOURCE_DIR}/traces/synthetic/0004-structural.tracy")
+    if(EXISTS "${STRUCTURAL_TRACE}")
+        add_test(
+            NAME cli-query-synthetic-structural
+            COMMAND tracy-query query --kind gpu-zone,context-switch,cpu-slice,cpu-usage
+                    --count --group-by kind "${STRUCTURAL_TRACE}"
+        )
+        set_tests_properties(cli-query-synthetic-structural PROPERTIES
+            PASS_REGULAR_EXPRESSION "\"kind\":\"gpu-zone\",\"count\":1"
+        )
+    endif()
+    add_test(
+        NAME structural-fixture-roundtrip
+        COMMAND ${CMAKE_COMMAND}
+                -DGENERATOR=$<TARGET_FILE:tracy-query-structural-fixture-generator>
+                -DTRACY_QUERY=$<TARGET_FILE:tracy-query>
+                -DOUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/generated-structural.tracy
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_structural_generator.cmake
+    )
 endif()

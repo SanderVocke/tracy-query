@@ -1,0 +1,25 @@
+TRACY-QUERY SYNTHETIC STRUCTURAL FIXTURE
+========================================
+
+File: 0004-structural.tracy
+Tracy: 0.13.1
+Source: ../../tests/fixtures/tracy_structural_fixture.cpp
+
+Expected records
+----------------
+
+- GPU zones: 1 custom-context interval from 1,200 ns to 1,700 ns
+- Thread context switches: 1 interval from 1,150 ns to 1,750 ns
+- Per-CPU slices: 1 interval on CPU 0 from 1,150 ns to 1,750 ns
+- Derived CPU-usage points: 3 after Tracy's load-time baseline reconstruction
+
+The fixture begins with Tracy's public import constructor and injects the
+otherwise platform-dependent structures through a test-only mutable accessor.
+That accessor is available only when `TRACY_QUERY_FIXTURE_ACCESS` is explicitly
+defined. The resulting capture is written by Tracy 0.13.1's own `Worker::Write`
+and then read back normally by tracy-query. Production tracy-query builds do
+not expose the mutable accessor.
+
+This fixture is synthetic format coverage. Its timestamps and relationships
+are intentionally simple and should not be interpreted as a real scheduler or
+GPU workload.
