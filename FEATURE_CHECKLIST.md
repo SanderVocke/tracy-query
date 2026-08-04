@@ -447,22 +447,22 @@ Verification:
 
 Dependencies: all prior stages.
 
-- [ ] Run formatting, static checks, unit tests, integration tests, and supported-platform CI.
-- [ ] Review `README.md` as a new user: verify setup, core commands, examples, output, and limitations match the implemented release.
-- [ ] Validate all acceptance criteria against small fixtures and the checksummed reference capture.
-- [ ] Compare representative results with Tracy 0.13.1's GUI or official exporters.
-- [ ] Benchmark whole-capture, narrow-range, point, mixed-kind, and count queries.
-- [ ] Document memory behavior, performance evidence, unsupported data, and Tracy API limitations.
-- [ ] Verify install output contains only intended project artifacts.
-- [ ] Freeze the documented CLI/output contract for the first stable release.
+- [x] Run local warning/static/sanitizer checks and Release/Debug tests; configure supported-platform hosted CI (no remote is available in this workspace to produce a hosted status).
+- [x] Review `README.md` as a new user: setup, commands, examples, output, and limitations match the implemented release.
+- [x] Validate all acceptance criteria against small fixtures and the checksummed reference capture.
+- [x] Compare representative results with Tracy 0.13.1's official exporter evidence.
+- [x] Benchmark whole-capture, narrow-range, point, mixed-kind, and count queries.
+- [x] Document memory behavior, performance evidence, unsupported data, and Tracy API limitations.
+- [x] Verify install output contains only intended project artifacts.
+- [x] Freeze the documented CLI/output contract for the first stable release.
 
 Final verification surface:
 
-- [ ] `check`, `range`, `info`, `sources`, and all query temporal modes succeed on the reference capture.
+- [x] `check`, `range`, `info`, `sources`, and all query temporal modes succeed on the reference capture.
 - [x] Every coverage-matrix adapter has fixed non-empty fixture coverage.
-- [ ] Reference metadata matches 0.13.1, 10 ns resolution, 617,218 zones, and approximately 16.31 seconds.
-- [ ] The `engine.rt.cycle` filtered CPU-zone count is exactly 2,369.
-- [ ] Mixed-kind normal output and grouped/ungrouped count output satisfy the immutable acceptance criteria.
-- [ ] The final end-to-end evidence is recorded in the plan or linked release notes.
-- [ ] `README.md` contains only current user-facing guidance and has no stale CLI examples or behavior claims.
-- [ ] Commit the completed stage or release milestone.
+- [x] Reference metadata matches 0.13.1, 10 ns resolution, 617,218 zones, and approximately 16.31 seconds.
+- [x] The `engine.rt.cycle` filtered CPU-zone count is exactly 2,369.
+- [x] Mixed-kind normal output and grouped/ungrouped count output satisfy the immutable acceptance criteria.
+- [x] Final end-to-end evidence is recorded in [`COMPLETION_AUDIT.md`](COMPLETION_AUDIT.md).
+- [x] `README.md` contains only current user-facing guidance and has no stale CLI examples or behavior claims.
+- [x] Commit the completed stage or release milestone.

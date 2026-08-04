@@ -132,6 +132,13 @@ void test_output() {
             "JSONL record contract");
     require(std::count(rendered.begin(), rendered.end(), '\n') == 1,
             "one physical output line");
+
+    std::ostringstream text_output;
+    tracy_query::emit_record(text_output, tracy_query::OutputFormat::Text, record);
+    const auto text = text_output.str();
+    require(text.starts_with("timestamp_ns=10 end_timestamp_ns=15 duration_ns=5") &&
+            std::count(text.begin(), text.end(), '\n') == 1 && text.find("line\\none") != std::string::npos,
+            "text record contract");
 }
 
 void test_registry() {

@@ -235,6 +235,30 @@ if(BUILD_TESTING)
                     --count "${SYNTHETIC_TRACE}"
         )
         set_tests_properties(cli-query-synthetic-scoped-regex PROPERTIES PASS_REGULAR_EXPRESSION "\"count\":4")
+        add_test(
+            NAME cli-query-synthetic-file-regex
+            COMMAND tracy-query query --kind cpu-zone
+                    --filter "cpu-zone.file=tracy_core_fixture\\.cpp$"
+                    --count "${SYNTHETIC_TRACE}"
+        )
+        set_tests_properties(cli-query-synthetic-file-regex PROPERTIES PASS_REGULAR_EXPRESSION "\"count\":2")
+        add_test(
+            NAME cli-query-synthetic-thread-scope
+            COMMAND tracy-query query --kind message --thread "^Main thread$"
+                    --count "${SYNTHETIC_TRACE}"
+        )
+        set_tests_properties(cli-query-synthetic-thread-scope PROPERTIES PASS_REGULAR_EXPRESSION "\"count\":2")
+    endif()
+
+    if(EXISTS "${REFERENCE_TRACE}" AND EXISTS "${SYNTHETIC_TRACE}")
+        add_test(
+            NAME cli-query-multiple-traces
+            COMMAND ${CMAKE_COMMAND}
+                    -DTRACY_QUERY=$<TARGET_FILE:tracy-query>
+                    -DREFERENCE_TRACE=${REFERENCE_TRACE}
+                    -DSYNTHETIC_TRACE=${SYNTHETIC_TRACE}
+                    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_multi_trace.cmake
+        )
     endif()
 
     set(CRASH_TRACE "${CMAKE_CURRENT_SOURCE_DIR}/traces/synthetic/0002-crash.tracy")
@@ -259,6 +283,13 @@ if(BUILD_TESTING)
         add_test(NAME cli-query-synthetic-hardware
                  COMMAND tracy-query query --kind hardware-sample --count "${SAMPLING_TRACE}")
         set_tests_properties(cli-query-synthetic-hardware PROPERTIES PASS_REGULAR_EXPRESSION "\"count\":8059")
+        add_test(
+            NAME cli-query-synthetic-symbol-regex
+            COMMAND tracy-query query --kind hardware-sample --detail full
+                    --filter "hardware-sample.symbol=SysTraceWorker"
+                    --count "${SAMPLING_TRACE}"
+        )
+        set_tests_properties(cli-query-synthetic-symbol-regex PROPERTIES PASS_REGULAR_EXPRESSION "\"count\":83")
     endif()
 
     set(STRUCTURAL_TRACE "${CMAKE_CURRENT_SOURCE_DIR}/traces/synthetic/0004-structural.tracy")
