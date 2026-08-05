@@ -24,6 +24,24 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(tracy_0131 tracy_ppqsort)
 
+# Tracy 0.13.1 initializes an unsigned byte with -1. GCC accepts this default
+# member initializer, but MSVC correctly rejects the narrowing conversion when
+# the structural fixture includes TracyEvent.hpp directly. Preserve the exact
+# sentinel value with an explicit conversion.
+set(_tracy_event_header "${tracy_0131_SOURCE_DIR}/server/TracyEvent.hpp")
+file(READ "${_tracy_event_header}" _tracy_event_contents)
+if(_tracy_event_contents MATCHES "uint8_t cpu = -1;")
+    string(REPLACE
+        "uint8_t cpu = -1;"
+        "uint8_t cpu = uint8_t( -1 );"
+        _tracy_event_contents
+        "${_tracy_event_contents}"
+    )
+    file(WRITE "${_tracy_event_header}" "${_tracy_event_contents}")
+endif()
+unset(_tracy_event_contents)
+unset(_tracy_event_header)
+
 # Tracy 0.13.1 exposes hardware-sample lookup by address but not iteration. Add
 # one read-only accessor at the pinned integration boundary so the hardware
 # adapter can provide complete source discovery and queries. A second accessor
