@@ -121,6 +121,10 @@ Intervals also include `end_timestamp_ns` and `duration_ns`. Use `--format text`
 
 Run `tracy-query --help` or `tracy-query <command> --help` for contextual help.
 
+## Agent skill
+
+[`SKILL.md`](SKILL.md) provides LLM agents with a self-contained workflow and complete CLI reference for debugging applications from existing Tracy captures. It covers source discovery, focused queries, multi-trace comparisons, common debugging recipes, and interpretation pitfalls; capture creation is intentionally out of scope.
+
 ## Limitations
 
 - Tracy's server-side parser is an internal, version-specific API. New Tracy versions require an explicit compatibility review.
