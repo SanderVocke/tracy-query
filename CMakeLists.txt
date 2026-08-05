@@ -2,6 +2,25 @@ cmake_minimum_required(VERSION 3.24)
 
 project(tracy-query VERSION 0.1.0 LANGUAGES C CXX)
 
+set(_tracy_query_static_default OFF)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(_tracy_query_static_default ON)
+endif()
+option(
+    TRACY_QUERY_FULLY_STATIC
+    "Build the Linux tracy-query executable without dynamic dependencies"
+    ${_tracy_query_static_default}
+)
+unset(_tracy_query_static_default)
+
+if(TRACY_QUERY_FULLY_STATIC AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    message(FATAL_ERROR "TRACY_QUERY_FULLY_STATIC is currently supported only on Linux")
+endif()
+
+# Tracy and every bundled third-party dependency are always linked into the
+# executable. No installed Tracy package, library, or profiler binary is used.
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build dependencies as static libraries" FORCE)
+
 include(cmake/TracyServer.cmake)
 
 add_library(
@@ -21,6 +40,20 @@ target_link_libraries(tracy_query_core PUBLIC TracyQuery::TracyServer)
 
 add_executable(tracy-query src/main.cpp)
 target_link_libraries(tracy-query PRIVATE tracy_query_core)
+if(TRACY_QUERY_FULLY_STATIC)
+    target_link_options(tracy-query PRIVATE -static)
+    add_custom_command(
+        TARGET tracy-query
+        POST_BUILD
+        COMMAND
+            ${CMAKE_COMMAND}
+            -DTRACY_QUERY_EXECUTABLE=$<TARGET_FILE:tracy-query>
+            -DTRACY_QUERY_READELF=${CMAKE_READELF}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyStaticExecutable.cmake
+        COMMENT "Verifying that tracy-query has no dynamic dependencies"
+        VERBATIM
+    )
+endif()
 
 if(MSVC)
     target_compile_options(tracy_query_core PRIVATE /W4 /permissive-)

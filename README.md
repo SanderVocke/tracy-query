@@ -12,6 +12,7 @@ Requirements:
 - A C++20 compiler
 - Ninja, Make, or another CMake-supported build tool
 - Internet access during the first configure
+- On Linux, static C and C++ runtime archives (for example, the `libc6-dev` and compiler development packages)
 
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -19,7 +20,7 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-Dependencies are commit- and hash-pinned and cached under `build/_deps`.
+Dependencies are commit- and hash-pinned and cached under `build/_deps`. On Linux, the installed `tracy-query` executable is fully static by default, and the build fails if any dynamic dependency remains. Use `-DTRACY_QUERY_FULLY_STATIC=OFF` only when building a locally linked development binary on a system without static runtime archives.
 
 ## Inspect captures
 
@@ -132,8 +133,8 @@ Run `tracy-query --help` or `tracy-query <command> --help` for contextual help.
 
 The project uses CMake `FetchContent` declarations in [`cmake/TracyServer.cmake`](cmake/TracyServer.cmake). Tracy is pinned to the exact commit behind **v0.13.1** (`05cceee0df3b8d7c6fa87e9638af311dbabc63cb`), and each downloaded archive is protected by a SHA-256 hash.
 
-The standard Tracy package exposes the instrumentation client but not `TracyFileRead` and `TracyWorker`, which are needed to parse captures. This project builds a private server target from the exact upstream source set and isolates additional internal access in its Tracy integration boundary.
+The standard Tracy package exposes the instrumentation client but not `TracyFileRead` and `TracyWorker`, which are needed to parse captures. This project compiles the exact upstream server source set into private static libraries and links them into `tracy-query`. It never searches for, loads, or invokes an installed Tracy package or profiler binary.
 
 ## Reference capture
 
-[`traces/monkey-playground`](traces/monkey-playground) contains a checksummed Tracy 0.13.1 capture and detailed provenance used for end-to-end validation. The implementation plan and completion checklist are in [`FEATURE_CHECKLIST.md`](FEATURE_CHECKLIST.md).
+[`traces/monkey-playground`](traces/monkey-playground) contains a checksummed Tracy 0.13.1 capture and detailed provenance used for end-to-end validation.
