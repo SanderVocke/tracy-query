@@ -42,6 +42,23 @@ endif()
 unset(_tracy_event_contents)
 unset(_tracy_event_header)
 
+# Tracy 0.13.1 selects x86-64 lzcnt/popcnt intrinsics for every 64-bit Windows
+# target. MSVC ARM64 defines _WIN64 but does not provide __lzcnt64, so let that
+# target use Tracy's portable fallback instead.
+set(_tracy_popcnt_header "${tracy_0131_SOURCE_DIR}/server/TracyPopcnt.hpp")
+file(READ "${_tracy_popcnt_header}" _tracy_popcnt_contents)
+if(_tracy_popcnt_contents MATCHES "#if defined _WIN64")
+    string(REPLACE
+        "#if defined _WIN64"
+        "#if defined( _WIN64 ) && defined( _M_X64 )"
+        _tracy_popcnt_contents
+        "${_tracy_popcnt_contents}"
+    )
+    file(WRITE "${_tracy_popcnt_header}" "${_tracy_popcnt_contents}")
+endif()
+unset(_tracy_popcnt_contents)
+unset(_tracy_popcnt_header)
+
 # Tracy 0.13.1 exposes hardware-sample lookup by address but not iteration. Add
 # one read-only accessor at the pinned integration boundary so the hardware
 # adapter can provide complete source discovery and queries. A second accessor
