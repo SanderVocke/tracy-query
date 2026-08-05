@@ -4,6 +4,18 @@
 
 The parser is intentionally pinned to Tracy 0.13.1.
 
+## Download
+
+The [latest GitHub release](https://github.com/SanderVocke/tracy-query/releases/latest) provides uncompressed executables for Linux, macOS, and Windows on x86-64 and ARM64:
+
+| Platform | x86-64 | ARM64 |
+|---|---|---|
+| Linux | `tracy-query-linux-x86_64` | `tracy-query-linux-arm64` |
+| macOS | `tracy-query-macos-x86_64` | `tracy-query-macos-arm64` |
+| Windows | `tracy-query-windows-x86_64.exe` | `tracy-query-windows-arm64.exe` |
+
+Tracy and all bundled third-party dependencies are statically linked into every executable. Linux binaries are fully static, Windows binaries use the static MSVC runtime, and macOS binaries retain only operating-system runtime dependencies because macOS does not support fully static user executables. On Linux and macOS, mark a downloaded binary executable with `chmod +x <file>`.
+
 ## Build
 
 Requirements:

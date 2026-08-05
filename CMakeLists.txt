@@ -17,6 +17,12 @@ if(TRACY_QUERY_FULLY_STATIC AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(FATAL_ERROR "TRACY_QUERY_FULLY_STATIC is currently supported only on Linux")
 endif()
 
+# Keep Windows release binaries independent of the separately installed MSVC
+# and Universal C runtimes. Windows system DLLs remain normal OS dependencies.
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
 # Tracy and every bundled third-party dependency are always linked into the
 # executable. No installed Tracy package, library, or profiler binary is used.
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build dependencies as static libraries" FORCE)
