@@ -82,6 +82,8 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v5
+
       - name: Download uncompressed binaries
         uses: actions/download-artifact@v8
         with:
@@ -118,7 +120,7 @@ jobs:
 
           See `README.md` for CLI usage and `SKILL.md` for the LLM-agent debugging workflow.
           EOF
-          gh release create "${GITHUB_REF_NAME}" release/tracy-query-* \
+          gh release create "${GITHUB_REF_NAME}" release/tracy-query-* SKILL.md \
             --verify-tag \
             --title "tracy-query 0.1" \
             --notes-file release-notes.md
