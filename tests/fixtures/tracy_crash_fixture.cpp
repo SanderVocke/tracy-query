@@ -11,7 +11,9 @@ int main() {
     }
     if (!TracyIsConnected) return 2;
     TracyMessageL("fixture crash incoming");
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    // Allow the collector to resolve and consume the deterministic marker before
+    // this fixture exits without Tracy shutdown, including under sanitizers.
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     // Exit without running Tracy shutdown or process destructors. This models an
     // abrupt crash without allowing Tracy's optional signal handler to wait for
     // a collector acknowledgement (which is platform-dependent in a fixture).
