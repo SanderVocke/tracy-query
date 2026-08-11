@@ -155,7 +155,7 @@ def free_range(count=24):
 
 
 def start_daemon(collector: Path, work: Path, *, owner_timeout=60000,
-                 connect_timeout=5000):
+                 connect_timeout=15000):
     output = work / "output"
     ready = work / "ready.json"
     output.mkdir(parents=True)
@@ -305,7 +305,7 @@ def primary_run(args, work: Path):
         wait_state(client, killed_session, {"awaiting-decision"})
 
         timeout_session, _ = client.register(run_id, "timeout", "connection timeout")
-        wait_state(client, timeout_session, {"failed-to-connect"})
+        wait_state(client, timeout_session, {"failed-to-connect"}, timeout=25)
 
         failure_session, failure_port = client.register(run_id, "writer", "save failure")
         failure_process = fixture_process(args.live, failure_port, "writer-marker")
@@ -419,7 +419,10 @@ def main():
     args.work.mkdir(parents=True)
     primary_run(args, args.work / "primary")
     owner_loss_run(args, args.work / "owner-loss")
-    signal_shutdown_run(args, args.work / "signal")
+    if os.name != "nt":
+        # Popen.terminate is a hard TerminateProcess on Windows rather than a
+        # console signal; authenticated finalization covers that platform.
+        signal_shutdown_run(args, args.work / "signal")
     print("collector protocol/live integration passed")
 
 

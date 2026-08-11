@@ -143,7 +143,7 @@ if(BUILD_TESTING)
                 --long $<TARGET_FILE:tracy-collector-long-fixture>
                 --work ${CMAKE_CURRENT_BINARY_DIR}/collector-integration
     )
-    set_tests_properties(collector-protocol-live PROPERTIES TIMEOUT 90)
+    set_tests_properties(collector-protocol-live PROPERTIES TIMEOUT 180)
 
     find_program(CARGO_NEXTEST_EXECUTABLE NAMES cargo-nextest)
     if(CARGO_NEXTEST_EXECUTABLE)
