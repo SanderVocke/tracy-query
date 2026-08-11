@@ -273,8 +273,17 @@ def primary_run(args, work: Path):
 
         saved_process = fixture_process(args.live, registrations["save"][1], "save-marker")
         discarded_process = fixture_process(args.live, registrations["discard"][1], "discard-marker")
-        wait_state(client, registrations["save"][0], {"capturing", "awaiting-decision"})
-        wait_state(client, registrations["discard"][0], {"capturing", "awaiting-decision"})
+        try:
+            wait_state(client, registrations["save"][0], {"capturing", "awaiting-decision"})
+            wait_state(client, registrations["discard"][0], {"capturing", "awaiting-decision"})
+        except Exception:
+            for name, fixture in (("save", saved_process), ("discard", discarded_process)):
+                code = fixture.poll()
+                if code is not None:
+                    out, err = fixture.communicate()
+                    print(f"{name} fixture exited {code}: stdout={out!r} stderr={err!r}",
+                          file=sys.stderr)
+            raise
         saved_result = wait_fixture(saved_process, "save fixture")
         discarded_result = wait_fixture(discarded_process, "discard fixture")
         if saved_result[0] != 0:

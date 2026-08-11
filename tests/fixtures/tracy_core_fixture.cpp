@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <chrono>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
@@ -14,7 +15,11 @@ int main(int argc, char** argv) {
     for (int i = 0; i < 500 && !TracyIsConnected; ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    if (!TracyIsConnected) return 2;
+    if (!TracyIsConnected) {
+        std::fprintf(stderr, "Tracy did not connect on TRACY_PORT=%s\n",
+                     std::getenv("TRACY_PORT") ? std::getenv("TRACY_PORT") : "<unset>");
+        return 2;
+    }
 
     TracyMessageL("fixture message");
     if (argc > 1) TracyMessage(argv[1], std::strlen(argv[1]));
