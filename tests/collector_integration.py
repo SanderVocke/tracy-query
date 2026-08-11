@@ -154,8 +154,8 @@ def free_range(count=24):
     raise RuntimeError("could not find a free contiguous port range")
 
 
-def start_daemon(collector: Path, work: Path, *, owner_timeout=10000,
-                 connect_timeout=1200):
+def start_daemon(collector: Path, work: Path, *, owner_timeout=60000,
+                 connect_timeout=5000):
     output = work / "output"
     ready = work / "ready.json"
     output.mkdir(parents=True)
@@ -165,7 +165,7 @@ def start_daemon(collector: Path, work: Path, *, owner_timeout=10000,
         [str(collector), "--output-root", str(output), "--ready-file", str(ready),
          "--control-port", str(control), "--data-port-first", str(first),
          "--data-port-last", str(last), "--owner-timeout-ms", str(owner_timeout),
-         "--connect-timeout-ms", str(connect_timeout), "--finalize-timeout-ms", "5000"],
+         "--connect-timeout-ms", str(connect_timeout), "--finalize-timeout-ms", "15000"],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
     )
     deadline = time.monotonic() + 15

@@ -74,11 +74,19 @@ jobs:
           test -s "dist/tracy-query-${{ matrix.platform }}${{ matrix.suffix }}"
           test -s "dist/tracy-collector-${{ matrix.platform }}${{ matrix.suffix }}"
 
-      - name: Upload uncompressed binaries
+      - name: Upload uncompressed query binary
         uses: actions/upload-artifact@v7
         with:
-          name: native-${{ matrix.platform }}
-          path: dist/*
+          name: tracy-query-${{ matrix.platform }}
+          path: dist/tracy-query-${{ matrix.platform }}${{ matrix.suffix }}
+          archive: false
+          if-no-files-found: error
+
+      - name: Upload uncompressed collector binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: tracy-collector-${{ matrix.platform }}
+          path: dist/tracy-collector-${{ matrix.platform }}${{ matrix.suffix }}
           archive: false
           if-no-files-found: error
 
@@ -115,8 +123,10 @@ jobs:
       - name: Install cargo-nextest 0.9.116
         shell: bash
         run: |
-          curl -LsSf https://get.nexte.st/0.9.116/linux | tar zxf - -C "${CARGO_HOME}/bin"
-          cargo nextest --version | grep 'cargo-nextest 0.9.116'
+          mkdir -p /tmp/cargo-nextest-bin
+          curl -LsSf https://get.nexte.st/0.9.116/linux | tar zxf - -C /tmp/cargo-nextest-bin
+          echo /tmp/cargo-nextest-bin >> "${GITHUB_PATH}"
+          /tmp/cargo-nextest-bin/cargo-nextest --version | grep 'cargo-nextest 0.9.116'
       - name: Configure and build
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DTRACY_QUERY_FULLY_STATIC=OFF
