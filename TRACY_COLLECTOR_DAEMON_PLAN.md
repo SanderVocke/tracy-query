@@ -221,21 +221,23 @@ Verification:
 
 This stage is implemented in the consumer repository after the collector protocol and release artifact are stable.
 
-- [ ] Add/pin nextest for the traced-test job while preserving the existing `cargo test -- --test-threads=1` correctness jobs.
-- [ ] Add a dedicated nextest trace profile/filter and initially cap traced-test concurrency at one; raise it only after resource measurements and concurrent collector tests justify it.
-- [ ] Add an opt-in, feature/environment-gated test startup module that registers `NEXTEST_ATTEMPT_ID` and related metadata, sets the assigned port before Tracy startup, initializes the required tracing subscriber/direct gates, and waits for collector connection before test code runs.
-- [ ] Ensure list/discovery invocations and ordinary cargo tests do not initialize Tracy or contact the daemon.
-- [ ] Add a suite orchestration command that launches the released collector, runs nextest directly with JUnit enabled, reconciles every registered attempt conservatively, finalizes the daemon, validates saved traces, and propagates nextest's overall status.
-- [ ] Select a small initial set of high-value engine/application tests; use coarse engine tracing by default and make detailed tracing a separate explicit mode.
-- [ ] Upload only finalized failure `.tracy` files, their manifest, collector diagnostics, and JUnit on `if: always()`; never upload partials or successful-attempt traces.
-- [ ] Record wall time, CPU, peak RSS, artifact sizes, and traced/untraced result differences before deciding whether to increase scope or concurrency.
+Dependency-order note: the first collector release necessarily follows this provider PR. ShoopDaLoop PR [#718](https://github.com/SanderVocke/shoopdaloop/pull/718) therefore pins the exact provider release-candidate commit in CI; its orchestration command consumes collector/query binaries by path and is ready to substitute the first released assets without an architecture change. This documented bootstrap does not weaken the traced/untraced, supervision, reconciliation, or artifact acceptance behavior.
+
+- [x] Add/pin nextest for the traced-test job while preserving the existing `cargo test -- --test-threads=1` correctness jobs.
+- [x] Add a dedicated nextest trace profile/filter and initially cap traced-test concurrency at one; raise it only after resource measurements and concurrent collector tests justify it.
+- [x] Add an opt-in, feature/environment-gated test startup module that registers `NEXTEST_ATTEMPT_ID` and related metadata, sets the assigned port before Tracy startup, initializes the required tracing subscriber/direct gates, and waits for collector connection before test code runs.
+- [x] Ensure list/discovery invocations and ordinary cargo tests do not initialize Tracy or contact the daemon.
+- [x] Add a suite orchestration command that launches the released collector, runs nextest directly with JUnit enabled, reconciles every registered attempt conservatively, finalizes the daemon, validates saved traces, and propagates nextest's overall status.
+- [x] Select a small initial set of high-value engine/application tests; use coarse engine tracing by default and make detailed tracing a separate explicit mode.
+- [x] Upload only finalized failure `.tracy` files, their manifest, collector diagnostics, and JUnit on `if: always()`; never upload partials or successful-attempt traces.
+- [x] Record wall time, CPU, peak RSS, artifact sizes, and traced/untraced result differences before deciding whether to increase scope or concurrency.
 
 Verification:
 
-- [ ] Normal ShoopDaLoop tests remain behaviorally and temporally unaffected when trace mode is absent.
-- [ ] A controlled passing traced test creates no trace file.
-- [ ] A controlled failing/crashing traced test creates one valid queryable trace and does not prevent nextest from continuing other tests.
-- [ ] A controlled timeout is terminated by nextest while the independent daemon retains and saves the received partial trace.
+- [x] Normal ShoopDaLoop tests remain behaviorally and temporally unaffected when trace mode is absent.
+- [x] A controlled passing traced test creates no trace file.
+- [x] A controlled failing/crashing traced test creates one valid queryable trace and does not prevent nextest from continuing other tests.
+- [x] A controlled timeout is terminated by nextest while the independent daemon retains and saves the received partial trace.
 
 ### Stage 7 — CI, packaging, release, and documentation
 
@@ -257,14 +259,14 @@ Verification:
 
 ### Stage 8 — Final end-to-end validation
 
-- [ ] From a clean checkout with empty build/output directories, configure, build, test, and install the repository using documented commands.
-- [ ] Run the complete existing query test suite and all new collector unit/protocol/live-client tests.
-- [ ] Run the nextest fixture and inspect its JUnit, daemon manifest, logs, saved failure traces, and absence of successful traces.
-- [ ] Run `tracy-query check`, `range`, `info`, and a fixture-specific query against every saved end-to-end trace.
-- [ ] Exercise concurrent attempts at the configured initial limit and verify unique ports, bounded resources, deterministic decisions, and no leaked processes/files.
-- [ ] Interrupt an orchestrated run, terminate one test, and remove the owner connection to verify save-by-default behavior and atomic output publication.
+- [x] From a clean checkout with empty build/output directories, configure, build, test, and install the repository using documented commands.
+- [x] Run the complete existing query test suite and all new collector unit/protocol/live-client tests.
+- [x] Run the nextest fixture and inspect its JUnit, daemon manifest, logs, saved failure traces, and absence of successful traces.
+- [x] Run `tracy-query check`, `range`, `info`, and a fixture-specific query against every saved end-to-end trace.
+- [x] Exercise concurrent attempts at the configured initial limit and verify unique ports, bounded resources, deterministic decisions, and no leaked processes/files.
+- [x] Interrupt an orchestrated run, terminate one test, and remove the owner connection to verify save-by-default behavior and atomic output publication.
 - [ ] Build/install/package on all release platforms through CI and inspect downloaded collector binaries independently of the build tree.
-- [ ] Run the ShoopDaLoop traced subset in CI-like constrained conditions, compare it with the untraced subset, and document measured overhead and any observer effects.
+- [x] Run the ShoopDaLoop traced subset in CI-like constrained conditions, compare it with the untraced subset, and document measured overhead and any observer effects.
 - [ ] Confirm every immutable acceptance criterion with linked command output, CI run, manifest, or validated capture evidence before declaring the feature complete.
 
 ## Expected verification commands
