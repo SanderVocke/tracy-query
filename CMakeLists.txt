@@ -106,7 +106,7 @@ if(BUILD_TESTING)
     target_compile_features(tracy_collector_tracy_client PUBLIC cxx_std_20)
     target_compile_definitions(
         tracy_collector_tracy_client
-        PUBLIC TRACY_ENABLE TRACY_ON_DEMAND TRACY_DELAYED_INIT TRACY_ONLY_LOCALHOST TRACY_ONLY_IPV4
+        PUBLIC TRACY_ENABLE TRACY_ON_DEMAND TRACY_DELAYED_INIT TRACY_ONLY_LOCALHOST TRACY_ONLY_IPV4 TRACY_TIMER_FALLBACK
     )
     target_include_directories(
         tracy_collector_tracy_client
