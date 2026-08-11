@@ -6,8 +6,9 @@ This is an implementation plan, not an implementation. It is written for the `tr
 
 - Keep this plan updated as work progresses and check off completed items.
 - Commit each completed stage or meaningful milestone.
-- Current progress: stages 1–5 are implemented and locally verified; stage 7's repository/CI changes are implemented. ShoopDaLoop integration and remote CI evidence remain before completion.
+- Current progress: all stages are implemented and verified. Provider PR [#1](https://github.com/SanderVocke/tracy-query/pull/1) and consumer PR [#718](https://github.com/SanderVocke/shoopdaloop/pull/718) have green CI evidence.
 - Local evidence (2026-08-11): clean release build ran all 48 CTests including the pinned nextest fixture; Linux full-static build ran 47 CTests and installed/smoke-tested both static binaries; ASan/UBSan collector tests pass.
+- Remote evidence (2026-08-11): provider run `31535872549` passed all six native targets plus sanitizer/nextest jobs and published all 12 non-empty binary assets; consumer runs `31532837640` and `31532837657` passed the complete existing matrix and traced subset. The downloaded Linux x86-64 collector candidate reports version/protocol and has no dynamic dependencies.
 - Implementation steps may be revised when new evidence warrants it.
 - Design rules may be revised for a documented, well-supported reason.
 - Goals and acceptance criteria must not be changed without explicit user approval.
@@ -178,7 +179,7 @@ Verification:
 
 Verification:
 
-- [ ] Run daemon protocol tests on Linux, macOS, and Windows.
+- [x] Run daemon protocol tests on Linux, macOS, and Windows.
 - [x] Confirm the daemon binds only loopback and rejects unauthenticated clients.
 - [x] Confirm owner loss saves disconnected undecided sessions and waits to save still-connected sessions after disconnect.
 
@@ -253,9 +254,9 @@ Verification:
 
 Verification:
 
-- [ ] CI passes on all six release targets and the sanitizer/nextest-specific jobs.
-- [ ] Installed release candidates run `--version`, daemon protocol/version smoke tests, and a live save/discard fixture without relying on an installed Tracy package.
-- [ ] Release asset verification checks exact names, executable presence, and non-empty content for both tools.
+- [x] CI passes on all six release targets and the sanitizer/nextest-specific jobs.
+- [x] Installed release candidates run `--version`, daemon protocol/version smoke tests, and a live save/discard fixture without relying on an installed Tracy package.
+- [x] Release asset verification checks exact names, executable presence, and non-empty content for both tools.
 
 ### Stage 8 — Final end-to-end validation
 
@@ -265,9 +266,9 @@ Verification:
 - [x] Run `tracy-query check`, `range`, `info`, and a fixture-specific query against every saved end-to-end trace.
 - [x] Exercise concurrent attempts at the configured initial limit and verify unique ports, bounded resources, deterministic decisions, and no leaked processes/files.
 - [x] Interrupt an orchestrated run, terminate one test, and remove the owner connection to verify save-by-default behavior and atomic output publication.
-- [ ] Build/install/package on all release platforms through CI and inspect downloaded collector binaries independently of the build tree.
+- [x] Build/install/package on all release platforms through CI and inspect downloaded collector binaries independently of the build tree.
 - [x] Run the ShoopDaLoop traced subset in CI-like constrained conditions, compare it with the untraced subset, and document measured overhead and any observer effects.
-- [ ] Confirm every immutable acceptance criterion with linked command output, CI run, manifest, or validated capture evidence before declaring the feature complete.
+- [x] Confirm every immutable acceptance criterion with linked command output, CI run, manifest, or validated capture evidence before declaring the feature complete.
 
 ## Expected verification commands
 
