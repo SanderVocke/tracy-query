@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
@@ -44,7 +45,8 @@ int main(int argc, char** argv) {
     FrameMark;
     TracyPlot("fixture.plot", 2.5);
     TracyMessageL("fixture done");
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    const int shutdown_delay_ms = argc > 2 ? std::max(0, std::atoi(argv[2])) : 200;
+    std::this_thread::sleep_for(std::chrono::milliseconds(shutdown_delay_ms));
     tracy::GetProfiler().RequestShutdown();
     while (!tracy::GetProfiler().HasShutdownFinished()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));

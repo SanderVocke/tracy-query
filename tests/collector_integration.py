@@ -181,12 +181,14 @@ def start_daemon(collector: Path, work: Path, *, owner_timeout=60000,
     return process, Client(descriptor["endpoint"], token), descriptor, output
 
 
-def fixture_process(executable: Path, port: int, marker=None):
+def fixture_process(executable: Path, port: int, marker=None, extra=None):
     env = os.environ.copy()
     env["TRACY_PORT"] = str(port)
     command = [str(executable)]
     if marker is not None:
         command.append(marker)
+    if extra is not None:
+        command.append(extra)
     return subprocess.Popen(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
@@ -361,7 +363,7 @@ def owner_loss_run(args, work: Path):
         lease = client.acquire(ready["run_id"])
         assert lease
         session, port = client.register(ready["run_id"], "owner-loss", "owner loss")
-        fixture = fixture_process(args.long, port)
+        fixture = fixture_process(args.live, port, "owner-loss-marker", "1000")
         wait_state(client, session, {"capturing"})
         # Let the owner lease expire while the client remains connected. The
         # daemon must wait for client disconnect rather than discarding it.
@@ -371,7 +373,7 @@ def owner_loss_run(args, work: Path):
         record = manifest["sessions"][0]
         assert record["state"] == "saved"
         assert record["decision_source"] == "owner-loss"
-        check_trace(args.query, output / record["output_name"], "fixture long connected")
+        check_trace(args.query, output / record["output_name"], "owner-loss-marker")
     finally:
         if process.poll() is None:
             process.kill()
@@ -385,12 +387,12 @@ def signal_shutdown_run(args, work: Path):
         client.acquire(ready["run_id"])
         session, port = client.register(ready["run_id"], "signal", "signal shutdown")
         fixture = fixture_process(args.live, port, "signal-marker")
-        wait_state(client, session, {"capturing"})
-        time.sleep(0.2)
-        process.terminate()
+        wait_state(client, session, {"capturing", "awaiting-decision"})
         fixture_result = wait_fixture(fixture, "signal fixture")
         if fixture_result[0] != 0:
             raise RuntimeError(f"signal fixture failed: {fixture_result}")
+        wait_state(client, session, {"awaiting-decision"})
+        process.terminate()
         assert process.wait(timeout=20) == 0
         manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
         record = manifest["sessions"][0]
