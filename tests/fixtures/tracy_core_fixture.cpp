@@ -1,5 +1,6 @@
 #include <chrono>
 #include <cstdlib>
+#include <cstring>
 #include <mutex>
 #include <thread>
 #include "tracy/Tracy.hpp"
@@ -7,7 +8,7 @@
 
 static TracyLockable(std::mutex, fixture_mutex);
 
-int main() {
+int main(int argc, char** argv) {
     tracy::SetThreadName("fixture-main");
     for (int i = 0; i < 500 && !TracyIsConnected; ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -15,6 +16,7 @@ int main() {
     if (!TracyIsConnected) return 2;
 
     TracyMessageL("fixture message");
+    if (argc > 1) TracyMessage(argv[1], std::strlen(argv[1]));
     TracyPlot("fixture.plot", 1.25);
     FrameMarkStart("fixture.frame");
     {

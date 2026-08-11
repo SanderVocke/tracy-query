@@ -12,5 +12,8 @@ int main() {
     if (!TracyIsConnected) return 2;
     TracyMessageL("fixture crash incoming");
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
-    std::abort();
+    // Exit without running Tracy shutdown or process destructors. This models an
+    // abrupt crash without allowing Tracy's optional signal handler to wait for
+    // a collector acknowledgement (which is platform-dependent in a fixture).
+    std::_Exit(134);
 }
