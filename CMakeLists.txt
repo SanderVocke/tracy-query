@@ -42,7 +42,7 @@ option(TRACY_NATIVE_DEBUGINFOD "Enable Tracy debuginfod integration" OFF)
 option(TRACY_NATIVE_ONLY_LOCALHOST "Restrict ordinary Tracy client sockets to localhost" OFF)
 option(TRACY_NATIVE_ONLY_IPV4 "Restrict ordinary Tracy client sockets to IPv4" OFF)
 option(TRACY_NATIVE_TIMER_FALLBACK "Use Tracy's timer fallback" OFF)
-if(BUILD_TESTING AND APPLE AND CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+if(BUILD_TESTING AND APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
     # GitHub's macOS Intel runners do not expose invariant TSC to the VM.
     set(TRACY_NATIVE_TIMER_FALLBACK ON CACHE BOOL "Use Tracy's timer fallback" FORCE)
 endif()
@@ -270,13 +270,19 @@ if(BUILD_TESTING)
                     --query $<TARGET_FILE:tracy-query>
                     --target-dir ${CMAKE_CURRENT_BINARY_DIR}/rust-embedded-target
         )
+        if(CMAKE_CONFIGURATION_TYPES)
+            set(_tracy_embedded_native_dir "${CMAKE_BINARY_DIR}/$<CONFIG>")
+        else()
+            set(_tracy_embedded_native_dir "${CMAKE_BINARY_DIR}")
+        endif()
         set_tests_properties(
             embedded-capture-rust-normal embedded-capture-rust-panic
             PROPERTIES
                 TIMEOUT 900
                 RUN_SERIAL TRUE
-                ENVIRONMENT "TRACY_QUERY_CMAKE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+                ENVIRONMENT "TRACY_QUERY_CMAKE_BUILD_DIR=${_tracy_embedded_native_dir}"
         )
+        unset(_tracy_embedded_native_dir)
         set_tests_properties(embedded-capture-rust-panic PROPERTIES DEPENDS embedded-capture-rust-normal)
     else()
         message(STATUS "cargo not found; Rust embedded-capture examples are not added to CTest")
