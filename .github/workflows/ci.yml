@@ -124,10 +124,11 @@ jobs:
         env:
           ASAN_OPTIONS: detect_leaks=0:strict_string_checks=1
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+          TRACY_QUERY_NATIVE_SANITIZER_LIBS: asan,ubsan
         run: |
           for attempt in 1 2 3; do
             ctest --test-dir build-sanitize \
-              -R 'collector-unit|collector-protocol-live|embedded-transport-unit|embedded-capture-native|embedded-capture-error' \
+              -R 'collector-unit|collector-protocol-live|embedded-transport-|embedded-capture-native|embedded-capture-error|embedded-capture-rust' \
               --output-on-failure
           done
 

@@ -1,6 +1,9 @@
 if(NOT DEFINED FIXTURE OR NOT DEFINED TRACY_QUERY OR NOT DEFINED OUTPUT_FILE)
     message(FATAL_ERROR "FIXTURE, TRACY_QUERY, and OUTPUT_FILE are required")
 endif()
+if(NOT DEFINED REQUIRE_CALLSTACK)
+    set(REQUIRE_CALLSTACK OFF)
+endif()
 
 file(REMOVE "${OUTPUT_FILE}")
 file(GLOB _partials "${OUTPUT_FILE}.*.partial")
@@ -35,6 +38,21 @@ foreach(_kind IN ITEMS cpu-zone message plot frame lock memory)
         message(FATAL_ERROR "missing ${_kind} records\n${_query_stdout}\n${_query_stderr}")
     endif()
 endforeach()
+
+execute_process(
+    COMMAND "${TRACY_QUERY}" query --kind cpu-zone --detail full --limit 20 "${OUTPUT_FILE}"
+    RESULT_VARIABLE _metadata_result
+    OUTPUT_VARIABLE _metadata_stdout
+    ERROR_VARIABLE _metadata_stderr)
+if(NOT _metadata_result EQUAL 0 OR NOT _metadata_stdout MATCHES "embedded.fixture.root")
+    message(FATAL_ERROR "missing source metadata\n${_metadata_stdout}\n${_metadata_stderr}")
+endif()
+if(REQUIRE_CALLSTACK AND
+   (NOT _metadata_stdout MATCHES "emit_events" OR
+    NOT _metadata_stdout MATCHES "tracy_embedded_fixture.cpp" OR
+    NOT _metadata_stdout MATCHES "callstack_id"))
+    message(FATAL_ERROR "missing dynamic callstack metadata\n${_metadata_stdout}\n${_metadata_stderr}")
+endif()
 
 file(GLOB _partials "${OUTPUT_FILE}.*.partial")
 if(_partials)

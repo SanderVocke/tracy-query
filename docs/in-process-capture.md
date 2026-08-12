@@ -107,6 +107,35 @@ failure in the finalizer itself have no durability guarantee and remain
 undefined. The `.tracy` format is not made incrementally recoverable by this
 feature.
 
+## Updating the pinned Tracy integration
+
+Treat a Tracy update as a compatibility change, not a routine dependency bump:
+
+1. Update the Tracy commit and archive hash in `cmake/TracyServer.cmake`, then
+   review Tracy's own dependency declarations and update the pinned PPQSort,
+   Capstone, and zstd revisions/hashes only when required by that release.
+2. Reapply and review every guarded integration edit in
+   `cmake/TracyServer.cmake`: the embedded socket include/layout seam, early
+   Worker-thread naming, query accessors, and platform compatibility fixes.
+   Configure must fail if a required source assumption no longer matches.
+3. Keep `rust/tracy-client-sys` package-compatible with the selected upstream
+   sys crate, preserve its upstream features/licenses, update
+   `PROVENANCE.md` and the version table, and continue building native code
+   through the repository CMake pin rather than adding a second Tracy tree.
+4. Diff Tracy's public C ABI against `rust/tracy-client-sys/src/generated*.rs`.
+   Regenerate the upstream bindings with that sys release's documented bindgen
+   process when the ABI changed; update `generated_embedded_capture.rs` from
+   `include/tracy_embedded_capture/embedded_capture.h` whenever this project's
+   lifecycle ABI changes.
+5. Re-audit handshake/protocol constants and the shutdown order against
+   `Profiler::Worker`, `ShutdownProfiler`, `Worker::Exec`, `Worker::Network`,
+   `Worker::Disconnect`, and both destructors. Then rerun all native, socket
+   control, semantic capture, Cargo dependency/feature, panic, static-link,
+   sanitizer, and six-platform CI checks recorded in
+   `TRACY_IN_PROCESS_CAPTURE_PLAN.md`.
+
+Do not update the native pin, sys package, or generated bindings independently.
+
 ## Initial observer-effect measurement
 
 A local Linux x86-64 release-build comparison on 2026-08-12 used the checked-in

@@ -205,8 +205,13 @@ if(BUILD_TESTING)
     target_include_directories(tracy-embedded-transport-unit-tests PRIVATE src/embedded)
     target_link_libraries(tracy-embedded-transport-unit-tests PRIVATE Threads::Threads)
     tracy_query_apply_warnings(tracy-embedded-transport-unit-tests)
-    add_test(NAME embedded-transport-unit COMMAND tracy-embedded-transport-unit-tests)
-    set_tests_properties(embedded-transport-unit PROPERTIES TIMEOUT 30)
+    foreach(_mode IN ITEMS core peer-destroy cancel)
+        add_test(
+            NAME embedded-transport-${_mode}
+            COMMAND tracy-embedded-transport-unit-tests ${_mode}
+        )
+        set_tests_properties(embedded-transport-${_mode} PROPERTIES TIMEOUT 30)
+    endforeach()
 
     add_executable(tracy-embedded-capture-fixture tests/fixtures/tracy_embedded_fixture.cpp)
     target_link_libraries(tracy-embedded-capture-fixture PRIVATE TracyQuery::EmbeddedCapture)
@@ -217,6 +222,7 @@ if(BUILD_TESTING)
                 -DFIXTURE=$<TARGET_FILE:tracy-embedded-capture-fixture>
                 -DTRACY_QUERY=$<TARGET_FILE:tracy-query>
                 -DOUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/embedded-native.tracy
+                -DREQUIRE_CALLSTACK=ON
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_embedded_capture.cmake
     )
     set_tests_properties(embedded-capture-native PROPERTIES TIMEOUT 60)

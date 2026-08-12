@@ -50,6 +50,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=CMAKE");
     println!("cargo:rerun-if-env-changed=CMAKE_GENERATOR");
     println!("cargo:rerun-if-env-changed=TRACY_QUERY_CMAKE_BUILD_DIR");
+    println!("cargo:rerun-if-env-changed=TRACY_QUERY_NATIVE_SANITIZER_LIBS");
     println!("cargo:rerun-if-changed=../../CMakeLists.txt");
     println!("cargo:rerun-if-changed=../../cmake/TracyServer.cmake");
     println!("cargo:rerun-if-changed=../../src/embedded");
@@ -155,6 +156,12 @@ fn main() {
             println!("cargo:rustc-link-lib=static=zstd_static");
         } else {
             println!("cargo:rustc-link-lib=static=zstd");
+        }
+    }
+
+    if let Ok(libraries) = env::var("TRACY_QUERY_NATIVE_SANITIZER_LIBS") {
+        for library in libraries.split(',').filter(|library| !library.is_empty()) {
+            println!("cargo:rustc-link-lib=dylib={library}");
         }
     }
 

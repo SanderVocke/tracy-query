@@ -19,7 +19,7 @@ namespace {
 void emit_events() {
     tracy::SetThreadName("Embedded fixture main");
     {
-        ZoneScopedN("embedded.fixture.root");
+        ZoneScopedNS("embedded.fixture.root", 8);
         TracyMessageL("embedded.fixture.message");
         TracyPlot("embedded.fixture.plot", 42.0);
         FrameMarkNamed("embedded.fixture.frame");
