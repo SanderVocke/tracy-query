@@ -12,6 +12,9 @@ documentation = "https://docs.rs/tracy-client-sys"
 description = "Low level bindings to Tracy 0.13.1 with an in-process capture backend"
 readme = "README.mkd"
 
+[target.'cfg(windows)'.dependencies]
+windows-targets = ">=0.48, <0.53"
+
 [lib]
 name = "tracy_client_sys"
 path = "src/lib.rs"
