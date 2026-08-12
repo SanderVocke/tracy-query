@@ -67,6 +67,36 @@ stage/bin/tracy-collector --version
 
 When `cargo-nextest` 0.9.116 is on `PATH` during configure, CTest also runs the pass/fail/abort/timeout/retry JUnit contract. CI pins that version in a dedicated job and publishes the JUnit, manifest, and only finalized failure traces.
 
+## Capture in process
+
+An experimental opt-in backend embeds Tracy's 0.13.1 server-side Worker in the
+instrumented process. Existing Tracy producer queues and serialization remain
+unchanged, but the complete bidirectional protocol travels over bounded memory
+streams instead of TCP. Controlled shutdown drains the client, writes a
+same-directory partial capture, and atomically publishes a normal `.tracy` file.
+No profiler GUI, daemon, helper process, discovery, or port is involved.
+
+The runnable [`examples/rust-embedded-capture`](examples/rust-embedded-capture)
+uses unmodified crates.io `tracy-client` and `tracing-tracy` packages with only a
+repository-patched `tracy-client-sys`. It demonstrates normal completion and a
+`panic=unwind` boundary that drops scoped spans, finalizes the trace, and resumes
+the original panic:
+
+```sh
+python3 examples/rust-embedded-capture/run_demo.py \
+  --mode normal --output out/rust-normal.tracy --query build/tracy-query
+python3 examples/rust-embedded-capture/run_demo.py \
+  --mode unwind-panic --output out/rust-panic.tracy --query build/tracy-query
+```
+
+See [`docs/in-process-capture.md`](docs/in-process-capture.md) for architecture,
+lifecycle and safety requirements. Only one capture/start/finish lifecycle is
+supported per process. Every instrumentation-producing thread must be quiescent
+before finish. Abort, fatal signals/exceptions, `SIGKILL`, OOM, power loss,
+double panic, and concurrent instrumentation during finish remain undefined.
+The in-process Worker consumes CPU, memory bandwidth, memory, and filesystem I/O
+inside the profiled process; use the external collector when isolation matters.
+
 ## Inspect captures
 
 Validate one or more captures:

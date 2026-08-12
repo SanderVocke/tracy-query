@@ -119,7 +119,9 @@ jobs:
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
         run: |
           for attempt in 1 2 3; do
-            ctest --test-dir build-sanitize -R 'collector-unit|collector-protocol-live' --output-on-failure
+            ctest --test-dir build-sanitize \
+              -R 'collector-unit|collector-protocol-live|embedded-transport-unit|embedded-capture-native|embedded-capture-error' \
+              --output-on-failure
           done
 
   collector-nextest:
