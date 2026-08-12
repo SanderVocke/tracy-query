@@ -146,6 +146,7 @@ fn main() {
         let capstone = build.join("_deps/tracy_capstone-build");
         let zstd = build.join("_deps/tracy_zstd-build/lib");
         link_search(&capstone.join("capstone.dir"));
+        link_search(&capstone.join("capstone.dir/Release"));
         link_search(&capstone);
         link_search(&zstd);
         println!("cargo:rustc-link-lib=static=capstone");
