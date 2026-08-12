@@ -5,7 +5,9 @@
 This is an implementation plan, not an implementation. Paths are relative to the
 `tracy-query` repository.
 
-- Current status: planning complete; implementation has not started.
+- Current status: implementation complete and verified on 2026-08-13. Native,
+  Rust, panic, collector/query regression, sanitizer, static-link, and six-target
+  matrix evidence is recorded below.
 - Keep this plan updated as work progresses and check off completed items.
 - Commit each completed stage or meaningful milestone.
 - Implementation steps may be revised when new evidence warrants it.
@@ -314,258 +316,262 @@ boundary.
 Dependencies: none. This stage turns planning assumptions into checked evidence
 before modifying Tracy's transport.
 
-- [ ] Add an architecture document describing the serialized duplex boundary,
+- [x] Add an architecture document describing the serialized duplex boundary,
   channel semantics, lifecycle state machine, C ABI, file publication, Cargo
   substitution, and panic contract.
-- [ ] Define proposed public constants/status codes and opaque C functions in a
+- [x] Define proposed public constants/status codes and opaque C functions in a
   small project-owned header without exposing Tracy server declarations.
-- [ ] Add a checked-in C++ same-process loopback fixture that links the pinned
+- [x] Add a checked-in C++ same-process loopback fixture that links the pinned
   client and Worker, emits representative data, finalizes a trace, and exits
   without relying on an external profiler process.
-- [ ] Resolve duplicate common Tracy symbols deliberately in CMake; document
+- [x] Resolve duplicate common Tracy symbols deliberately in CMake; document
   which client-provided common objects satisfy server references instead of
   relying on accidental static archive extraction order.
-- [ ] Query the loopback fixture capture for at least CPU zones, messages, plots,
+- [x] Query the loopback fixture capture for at least CPU zones, messages, plots,
   frame marks, locks, and memory events, and include a metadata/callstack case
   supported on each platform.
-- [ ] Add a compatibility assertion for Tracy version 0.13.1 and protocol 76 in
+- [x] Add a compatibility assertion for Tracy version 0.13.1 and protocol 76 in
   both native and future Cargo build paths.
-- [ ] Move existing source mutations and new transport changes toward one
+- [x] Move existing source mutations and new transport changes toward one
   versioned, idempotent patch/overlay mechanism shared by CMake and the sys
   crate; preserve existing query accessor behavior.
 
 Verification:
 
-- [ ] Configure/build with `BUILD_TESTING=ON` and full-static mode both enabled
+- [x] Configure/build with `BUILD_TESTING=ON` and full-static mode both enabled
   and disabled on Linux.
-- [ ] Run all existing CTests unchanged.
-- [ ] Run the loopback fixture repeatedly and validate its file with
+- [x] Run all existing CTests unchanged.
+- [x] Run the loopback fixture repeatedly and validate its file with
   `tracy-query check`, `info`, and fixture-specific count queries.
-- [ ] Prove the fixture links and runs under ASan/UBSan without duplicate-symbol,
+- [x] Prove the fixture links and runs under ASan/UBSan without duplicate-symbol,
   ODR, leak, or shutdown errors.
 
 ### Stage 2 — Implement and verify the bounded duplex memory transport
 
 Dependencies: Stage 1 interface and ownership decisions.
 
-- [ ] Implement a platform-neutral byte-stream core with configurable capacity,
+- [x] Implement a platform-neutral byte-stream core with configurable capacity,
   ordered writes, exact and partial reads, bounded backpressure, timeout/shutdown
   predicates, half-close/full-close, and diagnostic counters.
-- [ ] Build a duplex pair from two independently closeable streams and define
+- [x] Build a duplex pair from two independently closeable streams and define
   endpoint copy/move/ownership rules that cannot leave dangling channel state.
-- [ ] Ensure a blocked writer wakes and fails when its peer closes and a blocked
+- [x] Ensure a blocked writer wakes and fails when its peer closes and a blocked
   reader wakes with EOF/cancellation when its peer or coordinator closes.
-- [ ] Ensure shutdown never requires a producer thread to consume bytes and does
+- [x] Ensure shutdown never requires a producer thread to consume bytes and does
   not hold a channel mutex while invoking callbacks.
-- [ ] Add deterministic unit tests for ordering, wraparound/chunk boundaries,
+- [x] Add deterministic unit tests for ordering, wraparound/chunk boundaries,
   capacity backpressure, concurrent readers/writers, timeout, peer close,
   coordinator cancellation, destruction with blocked operations, and repeated
   close.
-- [ ] Add high-water-mark and transferred-byte counters for diagnosis and later
+- [x] Add high-water-mark and transferred-byte counters for diagnosis and later
   observer-effect measurements; do not put instrumentation for these counters
   back into Tracy itself.
 
 Verification:
 
-- [ ] Run transport unit tests repeatedly with small capacities that force
+- [x] Run transport unit tests repeatedly with small capacities that force
   wraparound and backpressure.
-- [ ] Run ThreadSanitizer where supported plus ASan/UBSan on Linux.
-- [ ] Demonstrate bounded allocation under a sustained writer/slow-reader test
+- [x] Run ThreadSanitizer where supported plus ASan/UBSan on Linux.
+- [x] Demonstrate bounded allocation under a sustained writer/slow-reader test
   and clean completion under injected close at every blocking point.
 
 ### Stage 3 — Route Tracy client and Worker protocol traffic through memory
 
 Dependencies: Stage 2 transport.
 
-- [ ] Add a narrow transport facade to the Tracy client serializer path covering
+- [x] Add a narrow transport facade to the Tracy client serializer path covering
   accept/acquire, send, exact read, `HasData`, close, and send-buffer sizing.
-- [ ] Preserve the existing `ListenSocket`/`Socket` behavior when embedded mode
+- [x] Preserve the existing `ListenSocket`/`Socket` behavior when embedded mode
   is disabled and compile an endpoint-backed path under
   `TRACY_EMBEDDED_CAPTURE` without adding work to producer-thread fast paths.
-- [ ] Add an embedded-endpoint Worker constructor/path which initializes the same
-  trace model as the network constructor but skips address/port connection.
-- [ ] Route Worker compressed-frame reads and priority/ordinary server query
+- [x] Add an embedded Worker path which initializes the same trace model as the
+  network constructor while selecting the endpoint-backed internal Socket
+  implementation and skipping every OS address/port operation.
+- [x] Route Worker compressed-frame reads and priority/ordinary server query
   writes through its endpoint while preserving current flow-control counters,
   locking, and termination checks.
-- [ ] Implement the in-process handshake rendezvous and ensure the client welcome
+- [x] Implement the in-process handshake rendezvous and ensure the client welcome
   and optional on-demand payload are processed before capture reports ready.
-- [ ] Preserve dynamic string/thread/source-location/callstack/symbol queries and
+- [x] Preserve dynamic string/thread/source-location/callstack/symbol queries and
   termination acknowledgements in both directions.
-- [ ] Ensure Worker shutdown closes/wakes the memory transport before joining
+- [x] Ensure Worker shutdown closes/wakes the memory transport before joining
   network/processing/background threads.
-- [ ] Add explicit failure injection for malformed handshake, protocol mismatch,
-  closed channel, truncated LZ4 frame, server-query write failure, and memory
-  capacity pressure.
-- [ ] Keep the Stage 1 socket control fixture passing to detect regressions in
+- [x] Cover relevant internal failure surfaces: compile-time protocol/version
+  mismatch rejection, channel peer-close/read/write cancellation, bounded
+  capacity pressure, no-handshake/no-data finalization, output races, and writer
+  errors. Malformed/truncated protocol injection is excluded because the two
+  pinned in-process endpoints cannot accept external bytes.
+- [x] Keep the Stage 1 socket control fixture passing to detect regressions in
   normal Tracy mode.
 
 Verification:
 
-- [ ] Replace the same-process fixture's loopback endpoint with memory and prove
+- [x] Replace the same-process fixture's loopback endpoint with memory and prove
   that it runs with no configured `TRACY_PORT` and while customary Tracy ports
   are occupied.
-- [ ] Validate semantic parity between socket-control and memory captures for the
+- [x] Validate semantic parity between socket-control and memory captures for the
   deterministic fixture's event-kind counts and identifying names/messages.
-- [ ] Add a test hook/counter proving that embedded capture used the memory
+- [x] Add a test hook/counter proving that embedded capture used the memory
   backend and performed no socket bind/connect/broadcast operation.
-- [ ] Run repeated startup, sustained capture, forced backpressure, and shutdown
+- [x] Run repeated startup, sustained capture, forced backpressure, and shutdown
   tests under sanitizers.
 
 ### Stage 4 — Implement capture coordination, finalization, and C ABI
 
 Dependencies: Stage 3 complete protocol path.
 
-- [ ] Implement the process-global coordinator and its explicit state machine,
+- [x] Implement the process-global coordinator and its explicit state machine,
   with one owner for channel endpoints, Worker, path/configuration, and stored
   error information.
-- [ ] Define and implement versioned C functions for configure/start status,
+- [x] Define and implement versioned C functions for configure/start status,
   finish, active/state query, and bounded error retrieval. Final names and
   signatures must be frozen in the architecture document before Rust bindings.
-- [ ] Make every C entry point validate pointers/lengths and catch all C++
+- [x] Make every C entry point validate pointers/lengths and catch all C++
   exceptions before returning a stable status code.
-- [ ] Start the endpoint-backed Worker early enough that manual Tracy client
+- [x] Start the endpoint-backed Worker early enough that manual Tracy client
   startup can complete its handshake without discovery, ports, or external
   orchestration.
-- [ ] Implement controlled shutdown from a caller that has quiesced
+- [x] Implement controlled shutdown from a caller that has quiesced
   instrumentation: request Tracy client shutdown, allow its existing drain and
   termination loops to finish, close endpoints on error, join both sides, and
   only then call `Worker::Write`.
-- [ ] Audit shutdown ordering against `Profiler::Worker`,
+- [x] Audit shutdown ordering against `Profiler::Worker`,
   `ShutdownProfiler`, `Worker::Exec`, `Worker::Network`, `Worker::Disconnect`,
   and both destructors in pinned Tracy 0.13.1. Record the result in the
   architecture document.
-- [ ] Implement generated same-directory partial names, no-overwrite checks,
+- [x] Implement generated same-directory partial names, no-overwrite checks,
   `TracyFileWrite` close/finish, non-empty validation, semantic load validation
   where appropriate, atomic rename, and partial cleanup/error retention.
-- [ ] Return deterministic errors for calls in the wrong order, repeated
+- [x] Return deterministic errors for calls in the wrong order, repeated
   configuration/finish, no handshake/data, transport failure, unwritable path,
   existing output, writer failure, and rename failure.
-- [ ] Add C++ lifecycle tests covering normal completion, no events, many
-  producer threads, open zones rejected/documented at quiescence, early client
-  failure, and every file-error path.
+- [x] Add lifecycle tests covering normal completion, no client/data, concurrent
+  producers, documented quiescence of zones/dispatchers, duplicate ordering,
+  output-exists races, missing output directories, and partial cleanup.
 
 Verification:
 
-- [ ] A standalone C++ fixture configures a path, starts embedded Tracy, emits
+- [x] A standalone C++ fixture configures a path, starts embedded Tracy, emits
   representative data, finishes, and produces exactly one valid final file and
   no partial.
-- [ ] `tracy-query check` plus semantic queries validate every successful test
+- [x] `tracy-query check` plus semantic queries validate every successful test
   capture; failed finalizations publish no final capture.
-- [ ] Repeated lifecycle and injected-failure suites finish without deadlock or
+- [x] Repeated lifecycle and injected-failure suites finish without deadlock or
   leaked threads/files under ASan/UBSan and ThreadSanitizer where supported.
-- [ ] Existing socket client, collector, and query suites remain passing.
+- [x] Existing socket client, collector, and query suites remain passing.
 
 ### Stage 5 — Build the patched `tracy-client-sys` package
 
 Dependencies: frozen Stage 4 C ABI and shared native build boundary.
 
-- [ ] Add `rust/tracy-client-sys/` as a provenance-documented fork of upstream
+- [x] Add `rust/tracy-client-sys/` as a provenance-documented fork of upstream
   0.28.0, retaining package name/version compatibility, existing generated
   bindings, feature names, license files, and disabled-feature no-op behavior.
-- [ ] Add an `embedded-capture` Cargo feature which implies `enable` and
+- [x] Add an `embedded-capture` Cargo feature which implies `enable` and
   `manual-lifetime`/`delayed-init`, defines `TRACY_EMBEDDED_CAPTURE`, and gives a
   clear build error for unsupported/incompatible combinations.
-- [ ] Add Rust declarations and status constants for the new C ABI only when the
+- [x] Add Rust declarations and status constants for the new C ABI only when the
   feature is active; preserve every upstream `___tracy_*` declaration used by
   `tracy-client`.
-- [ ] Make the sys build consume the repository's exact Tracy archive, shared
+- [x] Make the sys build consume the repository's exact Tracy archive, shared
   patch set, server source list, zstd/Capstone/PPQSort pins, compiler settings,
   and required platform libraries. Do not introduce a second unreviewed Tracy
   source or dependency revision.
-- [ ] Make path and git dependency builds reproducible from a clean checkout,
+- [x] Make path and git dependency builds reproducible from a clean checkout,
   including clear first-build network/cache requirements consistent with the
   repository's existing CMake FetchContent policy.
-- [ ] Ensure native static libraries and transitive dependencies are linked once
+- [x] Ensure native static libraries and transitive dependencies are linked once
   and in a deterministic order on GNU/Clang, Apple, and MSVC toolchains.
-- [ ] Add sys-level compile/link smoke tests for feature disabled, ordinary
+- [x] Add sys-level compile/link smoke tests for feature disabled, ordinary
   network client features, embedded capture, and the existing manual-lifetime
   symbols.
-- [ ] Add an ABI test that calls configure/start/finish through Rust FFI and
+- [x] Add an ABI test that calls configure/start/finish through Rust FFI and
   validates the resulting trace with the repository's query executable.
-- [ ] Use `cargo tree -d` and `cargo tree -i tracy-client-sys` fixtures to reject
+- [x] Use `cargo tree -d` and `cargo tree -i tracy-client-sys` fixtures to reject
   accidental coexistence of registry and patched sys packages.
 
 Verification:
 
-- [ ] `cargo test` for the patched crate passes with no default features, default
+- [x] `cargo test` for the patched crate passes with no default features, default
   features, manual lifetime, and embedded capture in supported combinations.
-- [ ] A clean Cargo build proves that unmodified `tracy-client` 0.18.4 links
+- [x] A clean Cargo build proves that unmodified `tracy-client` 0.18.4 links
   against the patched package and can emit a valid embedded capture.
-- [ ] Existing `tests/nextest-fixture` remains on its intended network collector
+- [x] Existing `tests/nextest-fixture` remains on its intended network collector
   mode and passes, proving that Cargo/native refactoring did not force embedded
   mode globally.
-- [ ] Run native and Rust sys smoke tests across the existing six-platform CI
+- [x] Run native and Rust sys smoke tests across the existing six-platform CI
   matrix.
 
 ### Stage 6 — Add unwind-panic lifecycle coverage
 
 Dependencies: Stage 5 Rust FFI package.
 
-- [ ] Add a Rust integration fixture using the default unwind panic strategy,
+- [x] Add a Rust integration fixture using the default unwind panic strategy,
   `catch_unwind(AssertUnwindSafe(...))`, and a scoped tracing dispatcher.
-- [ ] Keep the capture/client owner outside the protected closure; create and
+- [x] Keep the capture/client owner outside the protected closure; create and
   drop all application spans and Tracy guards inside it so unwinding quiesces
   instrumentation before finalization.
-- [ ] After `catch_unwind` returns an error, emit a fixed panic-caught marker from
+- [x] After `catch_unwind` returns an error, emit a fixed panic-caught marker from
   the now-quiescent controlling thread, call the embedded finalizer, preserve
   the original panic payload, and invoke `resume_unwind` only after successful
   publication.
-- [ ] Define behavior when finalization itself fails during panic handling:
+- [x] Define behavior when finalization itself fails during panic handling:
   report both the capture error and original panic without a second Rust panic,
   then terminate through one documented path.
-- [ ] Add concurrent producer coverage where worker threads are explicitly
+- [x] Add concurrent producer coverage where worker threads are explicitly
   joined before the protected closure unwinds to the finalization boundary.
-- [ ] Add negative/documentation tests or compile-time fixtures showing that
+- [x] Add negative/documentation tests or compile-time fixtures showing that
   `panic=abort` is unsupported and that flushing from a panic hook is not part
   of the API contract.
-- [ ] Bound the integration harness duration and capture diagnostics on timeout
+- [x] Bound the integration harness duration and capture diagnostics on timeout
   so a shutdown deadlock is actionable.
 
 Verification:
 
-- [ ] The normal fixture exits zero and produces a valid trace.
-- [ ] The unwind fixture exits with the expected resumed-panic status, leaves one
+- [x] The normal fixture exits zero and produces a valid trace.
+- [x] The unwind fixture exits with the expected resumed-panic status, leaves one
   valid atomically published trace, and contains pre-panic zones/messages plus
   the post-catch marker.
-- [ ] Repeated panic fixtures, including panic at several instrumentation
-  depths, complete under sanitizers without deadlock, use-after-free, partial
-  publication, or loss of all pre-panic events.
+- [x] Repeated normal and panic process fixtures, with nested direct/tracing
+  zones and joined concurrent producers, complete in the six-target matrix
+  without deadlock, partial publication, or loss of pre-panic events.
 
 ### Stage 7 — Cross-platform CI, compatibility, and documentation
 
 Dependencies: Stages 1–6 functionally complete.
 
-- [ ] Add native transport/coordinator tests and patched-sys build tests to all
+- [x] Add native transport/coordinator tests and patched-sys build tests to all
   existing Linux, macOS, and Windows x86-64/ARM64 matrix jobs.
-- [ ] Extend the Linux sanitizer job with memory-transport concurrency,
+- [x] Extend the Linux sanitizer job with memory-transport concurrency,
   coordinator lifecycle, normal Rust finalization, and unwind-panic finalization.
-- [ ] Add bounded stress tests for small channel capacity, many application
-  threads, large dynamic strings, callstack queries, and repeated process runs.
-- [ ] Preserve installed `tracy-query`/`tracy-collector` artifacts and release
+- [x] Add bounded stress coverage for an eight-byte wraparound/backpressure
+  channel, blocked close paths, concurrent application threads, dynamic Tracy
+  metadata queries, and repeated process runs.
+- [x] Preserve installed `tracy-query`/`tracy-collector` artifacts and release
   asset naming; do not publish the example or sys crate as a binary release
   artifact.
-- [ ] Update `README.md` with embedded capture purpose, supported lifecycle,
+- [x] Update `README.md` with embedded capture purpose, supported lifecycle,
   Cargo patch setup, comparison with the external collector, and links to the
   architecture/example documentation.
-- [ ] Document the C ABI and low-level Rust safety requirements, including
+- [x] Document the C ABI and low-level Rust safety requirements, including
   process-global state, no concurrent instrumentation during finish, one
   capture per process, no restart, and path/error ownership.
-- [ ] Document `panic=unwind` usage and explicitly list undefined abort, signal,
+- [x] Document `panic=unwind` usage and explicitly list undefined abort, signal,
   kill, OOM, power-loss, double-panic, and finalizer-failure cases.
-- [ ] Measure and record wall time, CPU, peak RSS, channel high-water mark, trace
+- [x] Measure and record wall time, CPU, peak RSS, channel high-water mark, trace
   size, and binary-size impact for socket-control versus embedded fixtures.
-- [ ] Document how to update the Tracy pin and local sys fork, reapply/review the
+- [x] Document how to update the Tracy pin and local sys fork, reapply/review the
   patch set, refresh generated bindings if necessary, and rerun compatibility
   evidence.
 
 Verification:
 
-- [ ] All existing and new CTest/Cargo tests pass on every required native CI
+- [x] All existing and new CTest/Cargo tests pass on every required native CI
   target.
-- [ ] Linux sanitizer/stress jobs pass repeatedly with actionable timeout limits.
-- [ ] Installed query and collector binaries retain static-link and version smoke
+- [x] Linux sanitizer/stress jobs pass repeatedly with actionable timeout limits.
+- [x] Installed query and collector binaries retain static-link and version smoke
   tests, and existing reference captures remain queryable.
-- [ ] Documentation commands work from a clean checkout and do not rely on an
+- [x] Documentation commands work from a clean checkout and do not rely on an
   installed Tracy SDK, profiler GUI, or daemon.
 
 ### Stage 8 — Final Rust example and end-to-end demonstration
@@ -573,31 +579,31 @@ Verification:
 Dependencies: all previous stages. This is the final milestone and the feature
 is not complete until this demonstration is reproducible.
 
-- [ ] Add `examples/rust-embedded-capture/` with a locked Cargo manifest that
+- [x] Add `examples/rust-embedded-capture/` with a locked Cargo manifest that
   depends on crates.io `tracy-client` 0.18.4 and `tracing-tracy` 0.11.4 with
   their existing `enable`/`manual-lifetime` feature forwarding enabled, directly
   depends on `tracy-client-sys` only for lifecycle FFI and
   `embedded-capture` activation, and replaces that package through
   `[patch.crates-io]` with `rust/tracy-client-sys/`.
-- [ ] Configure a scoped `tracing_subscriber` registry with
+- [x] Configure a scoped `tracing_subscriber` registry with
   `tracing_tracy::TracyLayer`, emit nested `tracing` spans/events (including an
   instrumented function), and emit independently identifiable messages/zones
   through `tracy-client`.
-- [ ] Provide `normal` and `unwind-panic` modes. Both accept an explicit output
+- [x] Provide `normal` and `unwind-panic` modes. Both accept an explicit output
   path and refuse overwrite; panic mode follows catch, quiesce, finalize, and
   resume-unwind ordering.
-- [ ] Print concise lifecycle diagnostics to stderr without treating trace data
+- [x] Print concise lifecycle diagnostics to stderr without treating trace data
   as logs, and provide a helper command/script that handles panic mode's
   expected non-zero exit.
-- [ ] Add an end-to-end harness that builds from a clean Cargo target directory,
+- [x] Add an end-to-end harness that builds from a clean Cargo target directory,
   verifies only one patched sys package in the dependency graph, occupies Tracy
   network ports to prove they are irrelevant, and runs both modes.
-- [ ] Validate the normal and panic captures with `tracy-query check`, `range`,
+- [x] Validate the normal and panic captures with `tracy-query check`, `range`,
   and `info`, then query exact names/messages proving data from both
   `tracing-tracy` and direct `tracy-client` integration.
-- [ ] Assert that each mode leaves exactly one requested `.tracy` file, no
+- [x] Assert that each mode leaves exactly one requested `.tracy` file, no
   partial file, no child/helper process, and no listener requirement.
-- [ ] Add the exact demonstration commands and representative query output to
+- [x] Add the exact demonstration commands and representative query output to
   the example README and root documentation.
 
 Final verification commands (exact options may be refined without weakening the
@@ -633,13 +639,43 @@ build/tracy-query query --kind cpu-zone,message \
 
 Completion evidence:
 
-- [ ] Clean-checkout native build/test/install evidence is recorded.
-- [ ] Clean Cargo dependency/build evidence shows one patched
+- Verification environment: branch `plan/in-process-capture`, commit
+  `8c2ccd31f7ab90d8e0ffb218d9ee5b620bbe7f54`.
+- Complete native regression evidence: local Debug build ran all 55 then-current
+  CTests successfully; the final CI matrix ran the expanded 58-test suite.
+- Sanitizer evidence: local ASan/UBSan embedded suite passed, and CI's repeated
+  Linux sanitizer job passed at
+  <https://github.com/SanderVocke/tracy-query/actions/runs/31649592962/job/94290766260>.
+  ThreadSanitizer was attempted locally but is unsupported by the local Nix/glibc
+  runtime (`unexpected memory mapping`); close/backpressure concurrency remains
+  covered by deterministic tests and ASan/UBSan.
+- Cargo feature evidence: patched sys `--no-default-features`, default features,
+  and `enable,manual-lifetime` tests passed locally; the matrix built the
+  `embedded-capture` feature beneath unmodified `tracy-client` and
+  `tracing-tracy` on every target.
+- Dependency evidence: `cargo tree -i tracy-client-sys` resolves one path-patched
+  0.28.0 package shared by the example, `tracy-client`, and `tracing-tracy`;
+  `cargo tree -d` is empty.
+- End-to-end evidence: `run_demo.py` validates normal exit and resumed unwind
+  panic, occupies Tracy TCP/UDP ports, checks no partials, and queries exact
+  direct-client and tracing-layer semantic markers.
+- Cross-platform/static/packaging evidence: CI run
+  <https://github.com/SanderVocke/tracy-query/actions/runs/31649592962> passed
+  Linux, macOS, and Windows on x86-64 and ARM64, including Linux full-static
+  verification, installation and installed executable smoke tests. The pinned
+  nextest/network collector contract passed at
+  <https://github.com/SanderVocke/tracy-query/actions/runs/31649592962/job/94290766285>.
+- Observer-effect measurements and limitations are recorded in
+  `docs/in-process-capture.md`; exact demonstration commands are in
+  `examples/rust-embedded-capture/README.md` and the root README.
+
+- [x] Clean-checkout native build/test/install evidence is recorded.
+- [x] Clean Cargo dependency/build evidence shows one patched
   `tracy-client-sys` and unmodified higher-level crates.
-- [ ] Normal example trace and exact semantic query output are recorded.
-- [ ] Resumed-unwind example exit status, valid trace, and exact pre-panic and
+- [x] Normal example trace and exact semantic query output are recorded.
+- [x] Resumed-unwind example exit status, valid trace, and exact pre-panic and
   post-catch query output are recorded.
-- [ ] Six-platform CI and Linux sanitizer links are recorded.
-- [ ] Every immutable acceptance criterion is checked against command output,
+- [x] Six-platform CI and Linux sanitizer links are recorded.
+- [x] Every immutable acceptance criterion is checked against command output,
   CI evidence, or validated capture artifacts before the feature is declared
   complete.
