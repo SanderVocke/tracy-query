@@ -267,7 +267,10 @@ if(BUILD_TESTING)
         )
         set_tests_properties(
             embedded-capture-rust-normal embedded-capture-rust-panic
-            PROPERTIES TIMEOUT 900 RUN_SERIAL TRUE
+            PROPERTIES
+                TIMEOUT 900
+                RUN_SERIAL TRUE
+                ENVIRONMENT "TRACY_QUERY_CMAKE_BUILD_DIR=${CMAKE_BINARY_DIR}"
         )
         set_tests_properties(embedded-capture-rust-panic PROPERTIES DEPENDS embedded-capture-rust-normal)
     else()

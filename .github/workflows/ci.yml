@@ -103,14 +103,21 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Configure ASan and UBSan
-        run: >-
-          cmake -S . -B build-sanitize -G Ninja
-          -DCMAKE_BUILD_TYPE=Debug
-          -DBUILD_TESTING=ON
-          -DTRACY_QUERY_FULLY_STATIC=OFF
-          "-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-sanitize=alignment"
-          "-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-sanitize=alignment"
-          -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if cmake -S . -B build-sanitize -G Ninja \
+              -DCMAKE_BUILD_TYPE=Debug \
+              -DBUILD_TESTING=ON \
+              -DTRACY_QUERY_FULLY_STATIC=OFF \
+              "-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-sanitize=alignment" \
+              "-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-sanitize=alignment" \
+              -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            sleep 5
+          done
       - name: Build collector tests
         run: cmake --build build-sanitize --parallel 2
       - name: Run collector tests repeatedly
@@ -138,7 +145,13 @@ jobs:
           /tmp/cargo-nextest-bin/cargo-nextest --version | grep 'cargo-nextest 0.9.116'
       - name: Configure and build
         run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DTRACY_QUERY_FULLY_STATIC=OFF
+          for attempt in 1 2 3; do
+            if cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DTRACY_QUERY_FULLY_STATIC=OFF; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            sleep 5
+          done
           cmake --build build --parallel 2
       - name: Run nextest/JUnit collector contract
         run: ctest --test-dir build -R collector-nextest-contract --output-on-failure

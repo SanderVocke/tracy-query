@@ -47,6 +47,7 @@ fn link_search(path: &Path) {
 fn main() {
     println!("cargo:rerun-if-env-changed=CMAKE");
     println!("cargo:rerun-if-env-changed=CMAKE_GENERATOR");
+    println!("cargo:rerun-if-env-changed=TRACY_QUERY_CMAKE_BUILD_DIR");
     println!("cargo:rerun-if-changed=../../CMakeLists.txt");
     println!("cargo:rerun-if-changed=../../cmake/TracyServer.cmake");
     println!("cargo:rerun-if-changed=../../src/embedded");
@@ -85,6 +86,22 @@ fn main() {
                 "OFF"
             }
         ));
+
+    if let Some(parent) = env::var_os("TRACY_QUERY_CMAKE_BUILD_DIR") {
+        let dependencies = PathBuf::from(parent).join("_deps");
+        for name in [
+            "TRACY_0131",
+            "TRACY_PPQSORT",
+            "TRACY_CAPSTONE",
+            "TRACY_ZSTD",
+        ] {
+            let directory = name.to_ascii_lowercase().replace('_', "_") + "-src";
+            configure.arg(format!(
+                "-DFETCHCONTENT_SOURCE_DIR_{name}={}",
+                dependencies.join(directory).display()
+            ));
+        }
+    }
 
     let mappings = [
         ("ondemand", "ON_DEMAND"),
