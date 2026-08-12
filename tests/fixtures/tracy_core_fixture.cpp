@@ -1,5 +1,8 @@
+#include <algorithm>
 #include <chrono>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <mutex>
 #include <thread>
 #include "tracy/Tracy.hpp"
@@ -7,14 +10,19 @@
 
 static TracyLockable(std::mutex, fixture_mutex);
 
-int main() {
+int main(int argc, char** argv) {
     tracy::SetThreadName("fixture-main");
     for (int i = 0; i < 500 && !TracyIsConnected; ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    if (!TracyIsConnected) return 2;
+    if (!TracyIsConnected) {
+        std::fprintf(stderr, "Tracy did not connect on TRACY_PORT=%s\n",
+                     std::getenv("TRACY_PORT") ? std::getenv("TRACY_PORT") : "<unset>");
+        return 2;
+    }
 
     TracyMessageL("fixture message");
+    if (argc > 1) TracyMessage(argv[1], std::strlen(argv[1]));
     TracyPlot("fixture.plot", 1.25);
     FrameMarkStart("fixture.frame");
     {
@@ -42,7 +50,8 @@ int main() {
     FrameMark;
     TracyPlot("fixture.plot", 2.5);
     TracyMessageL("fixture done");
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    const int shutdown_delay_ms = argc > 2 ? std::max(0, std::atoi(argv[2])) : 200;
+    std::this_thread::sleep_for(std::chrono::milliseconds(shutdown_delay_ms));
     tracy::GetProfiler().RequestShutdown();
     while (!tracy::GetProfiler().HasShutdownFinished()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));

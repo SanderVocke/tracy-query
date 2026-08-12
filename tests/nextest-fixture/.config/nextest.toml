@@ -1,0 +1,14 @@
+nextest-version = { required = "0.9.116" }
+
+[profile.collector]
+retries = 0
+fail-fast = false
+test-threads = 1
+slow-timeout = { period = "8s", terminate-after = 1 }
+junit = { path = "junit.xml" }
+success-output = "never"
+failure-output = "immediate-final"
+
+[[profile.collector.overrides]]
+filter = "test(retry_then_passes)"
+retries = 1

@@ -1,4 +1,7 @@
 /build/
 /build-*/
 /out/
+/stage-*/
+target/
+__pycache__/
 CMakeUserPresets.json

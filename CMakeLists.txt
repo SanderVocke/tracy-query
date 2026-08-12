@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(tracy-query VERSION 0.1.0 LANGUAGES C CXX)
+project(tracy-query VERSION 0.2.0 LANGUAGES C CXX)
 
 set(_tracy_query_static_default OFF)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -44,39 +44,123 @@ target_compile_features(tracy_query_core PUBLIC cxx_std_20)
 target_include_directories(tracy_query_core PUBLIC include)
 target_link_libraries(tracy_query_core PUBLIC TracyQuery::TracyServer)
 
+function(tracy_query_apply_warnings target)
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /W4 /permissive-)
+    else()
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+endfunction()
+
+function(tracy_query_configure_executable target)
+    tracy_query_apply_warnings(${target})
+    if(TRACY_QUERY_FULLY_STATIC)
+        target_link_options(${target} PRIVATE -static)
+        add_custom_command(
+            TARGET ${target}
+            POST_BUILD
+            COMMAND
+                ${CMAKE_COMMAND}
+                -DTRACY_QUERY_EXECUTABLE=$<TARGET_FILE:${target}>
+                -DTRACY_QUERY_READELF=${CMAKE_READELF}
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyStaticExecutable.cmake
+            COMMENT "Verifying that ${target} has no dynamic dependencies"
+            VERBATIM
+        )
+    endif()
+endfunction()
+
 add_executable(tracy-query src/main.cpp)
 target_link_libraries(tracy-query PRIVATE tracy_query_core)
-if(TRACY_QUERY_FULLY_STATIC)
-    target_link_options(tracy-query PRIVATE -static)
-    add_custom_command(
-        TARGET tracy-query
-        POST_BUILD
-        COMMAND
-            ${CMAKE_COMMAND}
-            -DTRACY_QUERY_EXECUTABLE=$<TARGET_FILE:tracy-query>
-            -DTRACY_QUERY_READELF=${CMAKE_READELF}
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyStaticExecutable.cmake
-        COMMENT "Verifying that tracy-query has no dynamic dependencies"
-        VERBATIM
-    )
-endif()
+tracy_query_apply_warnings(tracy_query_core)
+tracy_query_configure_executable(tracy-query)
 
-if(MSVC)
-    target_compile_options(tracy_query_core PRIVATE /W4 /permissive-)
-    target_compile_options(tracy-query PRIVATE /W4 /permissive-)
-else()
-    target_compile_options(tracy_query_core PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(tracy-query PRIVATE -Wall -Wextra -Wpedantic)
-endif()
+add_library(tracy_collector_core STATIC src/collector/collector.cpp)
+target_compile_features(tracy_collector_core PUBLIC cxx_std_20)
+target_include_directories(tracy_collector_core PUBLIC include)
+target_link_libraries(tracy_collector_core PRIVATE TracyQuery::TracyServer)
+tracy_query_apply_warnings(tracy_collector_core)
+
+add_executable(tracy-collector src/collector/main.cpp)
+target_link_libraries(tracy-collector PRIVATE tracy_collector_core TracyQuery::TracyServer)
+tracy_query_configure_executable(tracy-collector)
 
 include(GNUInstallDirs)
-install(TARGETS tracy-query RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS tracy-query tracy-collector RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 include(CTest)
 if(BUILD_TESTING)
     add_executable(tracy-query-unit-tests tests/unit.cpp)
     target_link_libraries(tracy-query-unit-tests PRIVATE tracy_query_core)
     add_test(NAME unit COMMAND tracy-query-unit-tests)
+
+    add_executable(tracy-collector-unit-tests tests/collector_unit.cpp)
+    target_link_libraries(tracy-collector-unit-tests PRIVATE tracy_collector_core)
+    tracy_query_apply_warnings(tracy-collector-unit-tests)
+    add_test(NAME collector-unit COMMAND tracy-collector-unit-tests)
+
+    add_library(
+        tracy_collector_tracy_client STATIC
+        "${tracy_0131_SOURCE_DIR}/public/TracyClient.cpp"
+    )
+    target_compile_features(tracy_collector_tracy_client PUBLIC cxx_std_20)
+    target_compile_definitions(
+        tracy_collector_tracy_client
+        PUBLIC TRACY_ENABLE TRACY_ON_DEMAND TRACY_DELAYED_INIT TRACY_ONLY_LOCALHOST TRACY_ONLY_IPV4 TRACY_TIMER_FALLBACK
+    )
+    target_include_directories(
+        tracy_collector_tracy_client
+        SYSTEM PUBLIC "${tracy_0131_SOURCE_DIR}/public"
+    )
+    target_link_libraries(
+        tracy_collector_tracy_client
+        PUBLIC Threads::Threads ${CMAKE_DL_LIBS}
+    )
+    # Tracy's bundled libbacktrace reads DWARF tag values through an enum while
+    # decoding sanitizer-instrumented binaries. Keep all other UBSan checks.
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(tracy_collector_tracy_client PRIVATE -fno-sanitize=enum)
+    endif()
+
+    add_executable(tracy-collector-live-fixture tests/fixtures/tracy_core_fixture.cpp)
+    target_link_libraries(tracy-collector-live-fixture PRIVATE tracy_collector_tracy_client)
+
+    add_executable(tracy-collector-crash-fixture tests/fixtures/tracy_crash_fixture.cpp)
+    target_link_libraries(tracy-collector-crash-fixture PRIVATE tracy_collector_tracy_client)
+
+    add_executable(tracy-collector-long-fixture tests/fixtures/tracy_long_fixture.cpp)
+    target_link_libraries(tracy-collector-long-fixture PRIVATE tracy_collector_tracy_client)
+
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    add_test(
+        NAME collector-protocol-live
+        COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/collector_integration.py
+                --collector $<TARGET_FILE:tracy-collector>
+                --query $<TARGET_FILE:tracy-query>
+                --live $<TARGET_FILE:tracy-collector-live-fixture>
+                --crash $<TARGET_FILE:tracy-collector-crash-fixture>
+                --long $<TARGET_FILE:tracy-collector-long-fixture>
+                --work ${CMAKE_CURRENT_BINARY_DIR}/collector-integration
+    )
+    set_tests_properties(collector-protocol-live PROPERTIES TIMEOUT 180)
+
+    find_program(CARGO_NEXTEST_EXECUTABLE NAMES cargo-nextest)
+    if(CARGO_NEXTEST_EXECUTABLE)
+        add_test(
+            NAME collector-nextest-contract
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tests/nextest_orchestrator.py
+                    --collector $<TARGET_FILE:tracy-collector>
+                    --query $<TARGET_FILE:tracy-query>
+                    --nextest ${CARGO_NEXTEST_EXECUTABLE}
+                    --fixture ${CMAKE_CURRENT_SOURCE_DIR}/tests/nextest-fixture
+                    --work ${CMAKE_CURRENT_BINARY_DIR}/nextest-integration
+        )
+        set_tests_properties(collector-nextest-contract PROPERTIES TIMEOUT 180 RUN_SERIAL TRUE)
+    else()
+        message(STATUS "cargo-nextest not found; the dedicated CI job runs the nextest contract")
+    endif()
 
     add_executable(
         tracy-query-structural-fixture-generator
