@@ -161,9 +161,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Download uncompressed binaries
+      - name: Download uncompressed query binaries
         uses: actions/download-artifact@v8
         with:
+          pattern: tracy-query-*
+          path: release
+          merge-multiple: true
+
+      - name: Download uncompressed collector binaries
+        uses: actions/download-artifact@v8
+        with:
+          pattern: tracy-collector-*
           path: release
           merge-multiple: true
 
