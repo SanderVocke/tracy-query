@@ -197,7 +197,7 @@ jobs:
         shell: bash
         run: |
           cat > release-notes.md <<'EOF'
-          `tracy-query` 0.1 reads Tracy Profiler 0.13.1 captures, and `tracy-collector` collects per-attempt in-memory captures for nextest-style test suites.
+          `tracy-query` 0.2.0 reads Tracy Profiler 0.13.1 captures, and `tracy-collector` collects per-attempt in-memory captures for nextest-style test suites.
 
           This release provides both executables for Linux, macOS, and Windows on x86-64 and ARM64. Tracy and all bundled third-party dependencies are statically linked. Linux binaries are fully static; Windows binaries use the static MSVC runtime; macOS retains only operating-system runtime dependencies.
 
@@ -205,5 +205,5 @@ jobs:
           EOF
           gh release create "${GITHUB_REF_NAME}" release/tracy-query-* release/tracy-collector-* SKILL.md \
             --verify-tag \
-            --title "tracy-query 0.1" \
+            --title "tracy-query 0.2.0" \
             --notes-file release-notes.md

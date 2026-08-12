@@ -124,7 +124,7 @@ Options parse_options(int argc, char** argv) {
             print_usage(std::cout);
             std::exit(0);
         } else if (argument == "--version") {
-            std::cout << "tracy-collector 0.1.0 (control protocol 1, Tracy 0.13.1)\n";
+            std::cout << "tracy-collector 0.2.0 (control protocol 1, Tracy 0.13.1)\n";
             std::exit(0);
         } else {
             throw std::invalid_argument("unknown option: " + argument);

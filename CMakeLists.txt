@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(tracy-query VERSION 0.1.0 LANGUAGES C CXX)
+project(tracy-query VERSION 0.2.0 LANGUAGES C CXX)
 
 set(_tracy_query_static_default OFF)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")

@@ -39,10 +39,11 @@ tracy-collector --output-root DIR --ready-file FILE [options]
 `DIR` is created and canonicalized. All artifacts remain immediately below it.
 The daemon binds control and Tracy data connections to loopback only. Set
 `TRACY_COLLECTOR_TOKEN` in the daemon environment to provide the run secret;
-otherwise the daemon creates 32 random bytes, writes a mode-0600 secret file
-beside the ready file, and refers to that file from the ready descriptor. The
-secret is never accepted on the command line and is never printed to normal
-logs.
+otherwise the daemon creates 32 random bytes and writes a secret file beside
+the ready file, then refers to it from the ready descriptor. On POSIX the daemon
+sets mode 0600. On Windows the file inherits its containing directory's ACL, so
+the ready file must be placed in a private per-user work directory. The secret
+is never accepted on the command line and is never printed to normal logs.
 
 After the listener is active, the daemon atomically publishes the UTF-8 JSON
 ready descriptor. Fields are `protocol_version`, `endpoint`, `run_id`, and

@@ -6,7 +6,7 @@ Both tools are intentionally pinned to Tracy 0.13.1.
 
 ## Download
 
-The [latest GitHub release](https://github.com/SanderVocke/tracy-query/releases/latest) provides uncompressed executables for Linux, macOS, and Windows on x86-64 and ARM64:
+Starting with v0.2.0, the [latest GitHub release](https://github.com/SanderVocke/tracy-query/releases/latest) provides uncompressed executables for both tools on Linux, macOS, and Windows on x86-64 and ARM64:
 
 | Platform | x86-64 | ARM64 |
 |---|---|---|
@@ -48,11 +48,11 @@ Start one suite-scoped daemon with an output root and atomic ready descriptor:
   --data-port-first 9400 --data-port-last 9499
 ```
 
-The descriptor identifies the loopback endpoint, run ID, protocol version, and mode-0600 secret file. A consumer startup hook activates only under nextest, registers `NEXTEST_ATTEMPT_ID` plus binary/test/retry metadata, sets the returned `TRACY_PORT` before Tracy delayed/manual initialization, and waits for a completed handshake. After nextest exits, the suite adapter reconciles authoritative JUnit records and sends decisions: clear successes are discarded; failed, crashed, timed-out, missing, duplicate, contradictory, and otherwise unresolved attempts are saved.
+The descriptor identifies the loopback endpoint, run ID, protocol version, and secret file. The daemon restricts that file to mode 0600 on POSIX; on Windows it inherits the containing directory's ACL, so the ready file should be placed in a private per-user work directory. A consumer startup hook activates only under nextest, registers `NEXTEST_ATTEMPT_ID` plus binary/test/retry metadata, sets the returned `TRACY_PORT` before Tracy delayed/manual initialization, and waits for a completed handshake. After nextest exits, the suite adapter reconciles authoritative JUnit records and sends decisions: clear successes are discarded; failed, crashed, timed-out, missing, duplicate, contradictory, and otherwise unresolved attempts are saved.
 
 `DISCARD` destroys the in-memory Worker without opening a trace file. `SAVE` writes a same-directory `.partial`, validates it, and atomically publishes a `.tracy` file. `manifest.json` records every identity, state, decision, handshake, output, and error. The daemon listens only on loopback, authenticates every request, bounds frames/sessions/memory/ports, and never forms paths from untrusted metadata. SIGINT, SIGTERM, owner lease loss, and finalization default unresolved sessions to save; SIGKILL or machine loss can still lose in-memory data.
 
-The complete versioned wire format, state model, retention rules, limits, exit codes, Rust fixture contract, JUnit correlation policy, and troubleshooting procedure are in [`docs/collector-protocol.md`](docs/collector-protocol.md). The repository's reference adapter is [`tests/nextest_orchestrator.py`](tests/nextest_orchestrator.py), and its locked fixture is under [`tests/nextest-fixture`](tests/nextest-fixture).
+The complete versioned wire format, state model, retention rules, limits, exit codes, Rust fixture contract, JUnit correlation policy, and troubleshooting procedure are in [`docs/collector-protocol.md`](docs/collector-protocol.md). The repository's reference adapter is [`tests/nextest_orchestrator.py`](tests/nextest_orchestrator.py), and its locked fixture is under [`tests/nextest-fixture`](tests/nextest-fixture). [ShoopDaLoop PR #718](https://github.com/SanderVocke/shoopdaloop/pull/718) provides a complete consumer integration, including its startup hook, nextest profile, suite adapter, CI job, and operational guide.
 
 Exact end-to-end validation:
 
