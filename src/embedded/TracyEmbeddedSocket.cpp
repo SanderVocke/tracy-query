@@ -15,7 +15,7 @@ Socket::Socket(int) : m_embedded(nullptr) {
 }
 
 Socket::~Socket() {
-    if (m_embedded) Close();
+    embedded::DestroyEndpoint(m_embedded);
 }
 
 bool Socket::Connect(const char*, uint16_t) {

@@ -88,7 +88,9 @@ int main() {
     blockedWriter.join();
     if (closeRead != 0) return fail("peer close did not wake blocked reader");
     if (closeWrite != -1) return fail("peer close did not wake blocked writer");
+    DestroyEndpoint(client);
     CloseEndpoint(server);
+    DestroyEndpoint(server);
     Cancel();
     return 0;
 }

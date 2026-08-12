@@ -201,14 +201,18 @@ bool Accept(void*& endpoint) {
     return true;
 }
 
-void CloseEndpoint(void*& opaque) {
+void CloseEndpoint(void* opaque) {
+    auto* endpoint = static_cast<Endpoint*>(opaque);
+    if (!endpoint || endpoint->closed) return;
+    endpoint->closed = true;
+    closePipeWriter(outgoing(*endpoint));
+    closePipeReader(incoming(*endpoint));
+}
+
+void DestroyEndpoint(void*& opaque) {
     auto* endpoint = static_cast<Endpoint*>(opaque);
     if (!endpoint) return;
-    if (!endpoint->closed) {
-        endpoint->closed = true;
-        closePipeWriter(outgoing(*endpoint));
-        closePipeReader(incoming(*endpoint));
-    }
+    CloseEndpoint(endpoint);
     delete endpoint;
     opaque = nullptr;
 }
