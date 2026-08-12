@@ -42,6 +42,10 @@ option(TRACY_NATIVE_DEBUGINFOD "Enable Tracy debuginfod integration" OFF)
 option(TRACY_NATIVE_ONLY_LOCALHOST "Restrict ordinary Tracy client sockets to localhost" OFF)
 option(TRACY_NATIVE_ONLY_IPV4 "Restrict ordinary Tracy client sockets to IPv4" OFF)
 option(TRACY_NATIVE_TIMER_FALLBACK "Use Tracy's timer fallback" OFF)
+if(BUILD_TESTING AND APPLE AND CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    # GitHub's macOS Intel runners do not expose invariant TSC to the VM.
+    set(TRACY_NATIVE_TIMER_FALLBACK ON CACHE BOOL "Use Tracy's timer fallback" FORCE)
+endif()
 option(TRACY_NATIVE_SYSTEM_TRACING "Enable Tracy system tracing" OFF)
 option(TRACY_NATIVE_CONTEXT_SWITCH "Enable Tracy context switch tracing" OFF)
 option(TRACY_NATIVE_SAMPLING "Enable Tracy sampling" OFF)
@@ -94,6 +98,7 @@ target_link_libraries(tracy_instrumentation_client_native PUBLIC Threads::Thread
 add_library(
     tracy_embedded_capture_native STATIC
     "${tracy_0131_SOURCE_DIR}/public/TracyClient.cpp"
+    "${tracy_0131_SOURCE_DIR}/public/common/TracyStackFrames.cpp"
     "${tracy_0131_SOURCE_DIR}/public/common/tracy_lz4hc.cpp"
     "${tracy_0131_SOURCE_DIR}/server/TracyMemory.cpp"
     "${tracy_0131_SOURCE_DIR}/server/TracyMmap.cpp"

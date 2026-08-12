@@ -8,6 +8,10 @@
 
 namespace tracy {
 
+#ifdef _WIN32
+void InitWinSock() {}
+#endif
+
 Socket::Socket() : m_embedded(nullptr) {}
 
 Socket::Socket(int) : m_embedded(nullptr) {
