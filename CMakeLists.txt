@@ -270,19 +270,13 @@ if(BUILD_TESTING)
                     --query $<TARGET_FILE:tracy-query>
                     --target-dir ${CMAKE_CURRENT_BINARY_DIR}/rust-embedded-target
         )
-        if(CMAKE_CONFIGURATION_TYPES)
-            set(_tracy_embedded_native_dir "${CMAKE_BINARY_DIR}/$<CONFIG>")
-        else()
-            set(_tracy_embedded_native_dir "${CMAKE_BINARY_DIR}")
-        endif()
         set_tests_properties(
             embedded-capture-rust-normal embedded-capture-rust-panic
             PROPERTIES
                 TIMEOUT 900
                 RUN_SERIAL TRUE
-                ENVIRONMENT "TRACY_QUERY_CMAKE_BUILD_DIR=${_tracy_embedded_native_dir}"
+                ENVIRONMENT "TRACY_QUERY_CMAKE_BUILD_DIR=${CMAKE_BINARY_DIR}"
         )
-        unset(_tracy_embedded_native_dir)
         set_tests_properties(embedded-capture-rust-panic PROPERTIES DEPENDS embedded-capture-rust-normal)
     else()
         message(STATUS "cargo not found; Rust embedded-capture examples are not added to CTest")

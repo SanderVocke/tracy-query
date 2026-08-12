@@ -38,10 +38,12 @@ fn run_with_retries(command: &mut Command, description: &str) {
 
 fn link_search(path: &Path) {
     println!("cargo:rustc-link-search=native={}", path.display());
-    println!(
-        "cargo:rustc-link-search=native={}",
-        path.join("Release").display()
-    );
+    for configuration in ["Release", "RelWithDebInfo", "MinSizeRel", "Debug"] {
+        println!(
+            "cargo:rustc-link-search=native={}",
+            path.join(configuration).display()
+        );
+    }
 }
 
 fn main() {
@@ -146,7 +148,6 @@ fn main() {
         let capstone = build.join("_deps/tracy_capstone-build");
         let zstd = build.join("_deps/tracy_zstd-build/lib");
         link_search(&capstone.join("capstone.dir"));
-        link_search(&capstone.join("capstone.dir/Release"));
         link_search(&capstone);
         link_search(&zstd);
         println!("cargo:rustc-link-lib=static=capstone");
