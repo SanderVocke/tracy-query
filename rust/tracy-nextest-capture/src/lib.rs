@@ -28,6 +28,7 @@ struct Capture {
     policy: Policy,
     client: tracy_client::Client,
     output: PathBuf,
+    diagnostic_identity: String,
 }
 
 impl Capture {
@@ -60,12 +61,19 @@ impl Capture {
         let attempt = attempt.into_string()
             .map_err(|_| "NEXTEST_ATTEMPT must be valid UTF-8")?;
         let output = output_path(&root, &binary, &test_name, &attempt, &attempt_id);
-        verify_abi()?;
-        configure(&output)?;
+        let diagnostic_identity = format!(
+            "test={} attempt={} id-digest={}",
+            sanitize(&test_name),
+            sanitize(&attempt),
+            attempt_digest(&attempt_id),
+        );
+        verify_abi().map_err(|error| format!("{diagnostic_identity}: {error}"))?;
+        configure(&output).map_err(|error| format!("{diagnostic_identity}: {error}"))?;
         let client = tracy_client::Client::start();
-        wait_until_capturing()?;
+        wait_until_capturing()
+            .map_err(|error| format!("{diagnostic_identity}: {error}"))?;
         client.message(&format!("nextest-in-process:{test_name}:attempt:{attempt}"), 0);
-        Ok(Some(Self { policy, client, output }))
+        Ok(Some(Self { policy, client, output, diagnostic_identity }))
     }
 
     fn finish(self, failed: bool) -> Result<(), String> {
@@ -78,7 +86,7 @@ impl Capture {
             tracy_client_sys::___tracy_embedded_capture_finish_with_disposition(disposition)
         };
         if status != tracy_client_sys::TRACY_EMBEDDED_CAPTURE_OK {
-            return Err(capture_error(status));
+            return Err(format!("{}: {}", self.diagnostic_identity, capture_error(status)));
         }
         if disposition == tracy_client_sys::TRACY_EMBEDDED_CAPTURE_SAVE {
             eprintln!("Tracy failure capture published: {}", self.output.display());
@@ -170,11 +178,14 @@ fn sanitize(value: &str) -> String {
     if result.is_empty() { "test".into() } else { result }
 }
 
-fn output_path(root: &Path, binary: &str, test: &str, attempt: &str, attempt_id: &std::ffi::OsStr) -> PathBuf {
+fn attempt_digest(attempt_id: &std::ffi::OsStr) -> String {
     let mut digest = Sha256::new();
     digest.update(attempt_id.to_string_lossy().as_bytes());
-    let hash = format!("{:x}", digest.finalize());
-    root.join(format!("{}--{}--attempt-{}--{}.tracy", sanitize(binary), sanitize(test), sanitize(attempt), &hash[..16]))
+    format!("{:x}", digest.finalize())[..16].into()
+}
+
+fn output_path(root: &Path, binary: &str, test: &str, attempt: &str, attempt_id: &std::ffi::OsStr) -> PathBuf {
+    root.join(format!("{}--{}--attempt-{}--{}.tracy", sanitize(binary), sanitize(test), sanitize(attempt), attempt_digest(attempt_id)))
 }
 
 fn verify_abi() -> Result<(), String> {
