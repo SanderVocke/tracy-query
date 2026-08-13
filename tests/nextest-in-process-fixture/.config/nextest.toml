@@ -1,0 +1,13 @@
+nextest-version = { required = "0.9.116" }
+
+[profile.tracy-in-process]
+retries = 0
+fail-fast = false
+test-threads = 4
+slow-timeout = { period = "30s", terminate-after = 1 }
+success-output = "never"
+failure-output = "immediate-final"
+
+[[profile.tracy-in-process.overrides]]
+filter = "test(retry_then_passes)"
+retries = 1

@@ -1,0 +1,21 @@
+[package]
+name = "tracy-nextest-in-process-fixture"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+tracy-nextest-capture = { path = "../../rust/tracy-nextest-capture" }
+tracy-client = { version = "=0.18.4", default-features = false, features = ["enable", "manual-lifetime"] }
+tracing-tracy = { version = "=0.11.4", default-features = false, features = ["enable", "manual-lifetime"] }
+tracy-client-sys = { version = "=0.28.0", default-features = false, features = ["embedded-capture"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["registry"] }
+
+[patch.crates-io]
+tracy-client-sys = { path = "../../rust/tracy-client-sys" }
+
+[profile.dev]
+panic = "unwind"
+[profile.release]
+panic = "unwind"

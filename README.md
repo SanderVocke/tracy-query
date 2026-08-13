@@ -90,7 +90,10 @@ python3 examples/rust-embedded-capture/run_demo.py \
 ```
 
 See [`docs/in-process-capture.md`](docs/in-process-capture.md) for architecture,
-lifecycle and safety requirements. Only one capture/start/finish lifecycle is
+lifecycle and safety requirements. For per-test cargo-nextest capture that
+writes only unwind-panic and `Result::Err` failures, see
+[`docs/nextest-in-process-capture.md`](docs/nextest-in-process-capture.md).
+Only one capture/start/finish lifecycle is
 supported per process. Every instrumentation-producing thread must be quiescent
 before finish. Abort, fatal signals/exceptions, `SIGKILL`, OOM, power loss,
 double panic, and concurrent instrumentation during finish remain undefined.
