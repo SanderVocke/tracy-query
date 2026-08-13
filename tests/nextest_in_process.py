@@ -62,13 +62,31 @@ def main():
     duplicates = run(["cargo", "tree", "--manifest-path", str(args.manifest), "-d"], env=environment, expected={0}).stdout.strip()
     if duplicates: raise RuntimeError(f"duplicate packages:\n{duplicates}")
 
-    # Ordinary cargo test/list behavior remains inert even if a policy is present.
+    # Ordinary cargo test and both cargo/nextest discovery remain inert even if
+    # a policy is present. A partial nextest identity is also a strict no-op.
     environment["TRACY_NEXTEST_CAPTURE"] = "failure"
     inactive = args.work / "inactive"
     inactive.mkdir()
     environment["TRACY_NEXTEST_OUTPUT_DIR"] = str(inactive.resolve())
+    run(["cargo", "test", "--manifest-path", str(args.manifest), "tests::passes_unit", "--", "--exact"], env=environment, expected={0})
     run(["cargo", "test", "--manifest-path", str(args.manifest), "--", "--list"], env=environment, expected={0})
-    if list(inactive.iterdir()): raise RuntimeError("cargo test listing created capture artifacts")
+    run([str(args.nextest), "nextest", "list", "--manifest-path", str(args.manifest)], env=environment, expected={0})
+    incomplete = environment.copy()
+    incomplete["NEXTEST_ATTEMPT_ID"] = "incomplete-identity"
+    for name in ("NEXTEST_TEST_NAME", "NEXTEST_BINARY_ID", "NEXTEST_ATTEMPT"):
+        incomplete.pop(name, None)
+    run(["cargo", "test", "--manifest-path", str(args.manifest), "tests::passes_unit", "--", "--exact"], env=incomplete, expected={0})
+    if list(inactive.iterdir()): raise RuntimeError("inactive cargo/nextest operation created capture artifacts")
+
+    invalid = environment.copy()
+    invalid["TRACY_NEXTEST_CAPTURE"] = "sometimes"
+    invalid_result = run([
+        str(args.nextest), "nextest", "run", "--manifest-path", str(args.manifest),
+        "--profile", "tracy-in-process", "-E", "test(passes_unit)"
+    ], env=invalid, expected={100, 101})
+    if "invalid TRACY_NEXTEST_CAPTURE policy" not in invalid_result.stdout + invalid_result.stderr:
+        raise RuntimeError("invalid policy did not fail with an actionable pre-body diagnostic")
+    if list(inactive.iterdir()): raise RuntimeError("invalid policy created capture artifacts")
 
     modes = {"off": 0, "failure": 3, "always": 6}
     if args.policy != "all":

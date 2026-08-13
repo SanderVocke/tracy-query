@@ -32,7 +32,13 @@ struct Capture {
 
 impl Capture {
     fn start() -> Result<Option<Self>, String> {
-        let Some(attempt_id) = std::env::var_os("NEXTEST_ATTEMPT_ID") else {
+        let identity = (
+            std::env::var_os("NEXTEST_ATTEMPT_ID"),
+            std::env::var_os("NEXTEST_TEST_NAME"),
+            std::env::var_os("NEXTEST_BINARY_ID"),
+            std::env::var_os("NEXTEST_ATTEMPT"),
+        );
+        let (Some(attempt_id), Some(test_name), Some(binary), Some(attempt)) = identity else {
             return Ok(None);
         };
         let policy = parse_policy(std::env::var_os("TRACY_NEXTEST_CAPTURE"))?;
@@ -47,10 +53,12 @@ impl Capture {
         if !root.is_dir() {
             return Err(format!("capture output directory does not exist: {}", root.display()));
         }
-        let test_name = std::env::var("NEXTEST_TEST_NAME")
-            .map_err(|_| "NEXTEST_TEST_NAME must accompany NEXTEST_ATTEMPT_ID")?;
-        let binary = std::env::var("NEXTEST_BINARY_ID").unwrap_or_else(|_| "test".into());
-        let attempt = std::env::var("NEXTEST_ATTEMPT").unwrap_or_else(|_| "1".into());
+        let test_name = test_name.into_string()
+            .map_err(|_| "NEXTEST_TEST_NAME must be valid UTF-8")?;
+        let binary = binary.into_string()
+            .map_err(|_| "NEXTEST_BINARY_ID must be valid UTF-8")?;
+        let attempt = attempt.into_string()
+            .map_err(|_| "NEXTEST_ATTEMPT must be valid UTF-8")?;
         let output = output_path(&root, &binary, &test_name, &attempt, &attempt_id);
         configure(&output)?;
         let client = tracy_client::Client::start();
