@@ -60,6 +60,7 @@ impl Capture {
         let attempt = attempt.into_string()
             .map_err(|_| "NEXTEST_ATTEMPT must be valid UTF-8")?;
         let output = output_path(&root, &binary, &test_name, &attempt, &attempt_id);
+        verify_abi()?;
         configure(&output)?;
         let client = tracy_client::Client::start();
         wait_until_capturing()?;
@@ -174,6 +175,18 @@ fn output_path(root: &Path, binary: &str, test: &str, attempt: &str, attempt_id:
     digest.update(attempt_id.to_string_lossy().as_bytes());
     let hash = format!("{:x}", digest.finalize());
     root.join(format!("{}--{}--attempt-{}--{}.tracy", sanitize(binary), sanitize(test), sanitize(attempt), &hash[..16]))
+}
+
+fn verify_abi() -> Result<(), String> {
+    let actual = unsafe { tracy_client_sys::___tracy_embedded_capture_abi_version() };
+    if actual == tracy_client_sys::TRACY_EMBEDDED_CAPTURE_ABI_VERSION {
+        Ok(())
+    } else {
+        Err(format!(
+            "embedded capture ABI mismatch: helper requires {}, native library reports {actual}",
+            tracy_client_sys::TRACY_EMBEDDED_CAPTURE_ABI_VERSION
+        ))
+    }
 }
 
 fn configure(path: &Path) -> Result<(), String> {
