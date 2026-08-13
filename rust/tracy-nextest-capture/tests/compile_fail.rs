@@ -31,6 +31,11 @@ fn supported_signatures_compile_and_unsupported_forms_are_rejected() {
             "use tracy_nextest_capture_macros::tracy_capture_test; #[tracy_capture_test] fn bad() -> u32 { 1 } fn main() {}",
             "captured tests must return () or Result<(), E>",
         ),
+        (
+            "incompatible-harness",
+            "use tracy_nextest_capture_macros::tracy_capture_test; #[tracy_capture_test] #[rstest] fn bad() {} fn main() {}",
+            "incompatible test harness attribute",
+        ),
     ] {
         let directory = root.join("target/compile-fail").join(name);
         fs::create_dir_all(directory.join("src")).unwrap();

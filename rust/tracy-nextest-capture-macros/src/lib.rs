@@ -20,6 +20,21 @@ pub fn tracy_capture_test(arguments: TokenStream, input: TokenStream) -> TokenSt
             .into_compile_error()
             .into();
     }
+    const INCOMPATIBLE_HARNESSES: &[&str] = &[
+        "bench", "rstest", "test_case", "test_matrix", "parameterized", "tokio", "async_std",
+    ];
+    if let Some(attribute) = function.attrs.iter().find(|attribute| {
+        attribute.path().segments.last().is_some_and(|segment| {
+            INCOMPATIBLE_HARNESSES.iter().any(|name| segment.ident == *name)
+        })
+    }) {
+        return syn::Error::new_spanned(
+            attribute,
+            "incompatible test harness attribute; tracy_capture_test initially supports only synchronous libtest #[test] functions",
+        )
+        .into_compile_error()
+        .into();
+    }
     if !function.sig.inputs.is_empty() || function.sig.generics.params.len() != 0 {
         return syn::Error::new_spanned(&function.sig, "captured tests must have no parameters or generics")
             .into_compile_error()
