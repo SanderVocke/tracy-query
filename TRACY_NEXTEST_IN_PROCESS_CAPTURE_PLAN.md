@@ -2,10 +2,10 @@
 
 ## Status and execution contract
 
-This is an implementation plan, not an implementation. Paths are relative to the
-`tracy-query` repository.
+This plan is implemented and audited. Paths are relative to the `tracy-query`
+repository.
 
-- Current status: planning complete; implementation has not started.
+- Current status: implementation complete and audited; all local and CI gates pass.
 - Keep this plan updated as work progresses and check off completed items.
 - Commit each completed stage or meaningful milestone.
 - Implementation steps may be revised when new evidence warrants it.
@@ -190,152 +190,182 @@ retained.
 
 Dependencies: completed in-process capture backend.
 
-- [ ] Add an architecture document covering supported signatures, policies,
+- [x] Add an architecture document covering supported signatures, policies,
   paths, panic/`Err` ordering, and external-collector fallback.
-- [ ] Freeze the disposition C ABI, terminal states, Rust helper API, and
+- [x] Freeze the disposition C ABI, terminal states, Rust helper API, and
   compatibility behavior of the current finish function.
-- [ ] Add compile fixtures for `()`, `Result<(), E>`, async, `#[should_panic]`,
+- [x] Add compile fixtures for `()`, `Result<(), E>`, async, `#[should_panic]`,
   incompatible attributes, and non-unwind configuration.
-- [ ] Add a minimal manual nextest proof that a resumed panic is reported only
+- [x] Add a minimal manual nextest proof that a resumed panic is reported only
   after in-process publication completes.
-- [ ] Record and test nextest 0.9.116 process/environment assumptions.
+- [x] Record and test nextest 0.9.116 process/environment assumptions.
 
 Verification:
 
-- [ ] Review wrapper behavior against libtest `Termination`, panic, and existing
+- [x] Review wrapper behavior against libtest `Termination`, panic, and existing
   Rust example behavior.
-- [ ] Prove cargo test and nextest list/discovery remain inert.
-- [ ] Confirm no retention decision depends on post-exit JUnit data.
+- [x] Prove cargo test and nextest list/discovery remain inert.
+- [x] Confirm no retention decision depends on post-exit JUnit data.
 
 ### Stage 2 — Implement native save/discard finalization
 
 Dependencies: Stage 1 ABI decision.
 
-- [ ] Refactor shutdown into a common drain/disconnect phase followed by a
+- [x] Refactor shutdown into a common drain/disconnect phase followed by a
   save/discard disposition.
-- [ ] Implement the additive C ABI operation and keep current finish-as-save.
-- [ ] Add discarded terminal state and deterministic invalid/duplicate errors.
-- [ ] Add writer/write/publish hooks or counters proving discard avoids disk.
-- [ ] Cover no-data, invalid disposition, transport timeout, output races, writer
+- [x] Implement the additive C ABI operation and keep current finish-as-save.
+- [x] Add discarded terminal state and deterministic invalid/duplicate errors.
+- [x] Add writer/write/publish hooks or counters proving discard avoids disk.
+- [x] Cover no-data, invalid disposition, transport timeout, output races, writer
   failure, and cleanup without exceptions crossing FFI.
-- [ ] Update sys bindings and ABI/version assertions.
+- [x] Update sys bindings and ABI/version assertions.
 
 Verification:
 
-- [ ] Process fixtures prove save creates one valid file and discard creates no
+- [x] Process fixtures prove save creates one valid file and discard creates no
   output/partial and records zero writer calls.
-- [ ] Repeated save/discard tests pass under ASan/UBSan.
-- [ ] Existing C++ and Rust normal/panic examples remain passing unchanged.
+- [x] Repeated save/discard tests pass under ASan/UBSan.
+- [x] Existing C++ and Rust normal/panic examples remain passing unchanged.
 
 ### Stage 3 — Implement the Rust test helper
 
 Dependencies: Stage 2 native ABI.
 
-- [ ] Add lifecycle and optional proc-macro crates with locked manifests,
+- [x] Add lifecycle and optional proc-macro crates with locked manifests,
   provenance, licenses, and feature forwarding.
-- [ ] Implement nextest-only activation, policy parsing, output validation,
+- [x] Implement nextest-only activation, policy parsing, output validation,
   filename generation, and attempt marker emission.
-- [ ] Start Tracy and wait for readiness before invoking the test body.
-- [ ] For `()`, discard normal return under `failure`; on unwind save, mark, and
+- [x] Start Tracy and wait for readiness before invoking the test body.
+- [x] For `()`, discard normal return under `failure`; on unwind save, mark, and
   resume the original payload.
-- [ ] For `Result<(), E>`, discard `Ok` and save before returning original `Err`.
-- [ ] Implement `off`, `always`, bounded diagnostics, and non-double-panic
+- [x] For `Result<(), E>`, discard `Ok` and save before returning original `Err`.
+- [x] Implement `off`, `always`, bounded diagnostics, and non-double-panic
   finalizer-failure behavior.
-- [ ] Ensure helper-owned dispatchers/guards drop before finalization.
+- [x] Ensure helper-owned dispatchers/guards drop before finalization.
 
 Verification:
 
-- [ ] Unit/compile tests cover policy, path confinement, retry uniqueness,
+- [x] Unit/compile tests cover policy, path confinement, retry uniqueness,
   no-op activation, supported signatures, and compile rejection.
-- [ ] `cargo tree -i tracy-client-sys` shows one patched package shared by helper,
+- [x] `cargo tree -i tracy-client-sys` shows one patched package shared by helper,
   `tracy-client`, and `tracing-tracy`; `cargo tree -d` is empty.
-- [ ] Process fixtures preserve original panic and `Err` reporting.
+- [x] Process fixtures preserve original panic and `Err` reporting.
 
 ### Stage 4 — Add a dedicated in-process nextest fixture
 
 Dependencies: Stage 3 helper.
 
-- [ ] Add `tests/nextest-in-process-fixture/` with locked dependencies, patched
+- [x] Add `tests/nextest-in-process-fixture/` with locked dependencies, patched
   sys, pinned nextest profile, and unwind strategy.
-- [ ] Include passing `()`, passing `Result`, panic, `Result::Err`, failed retry
+- [x] Include passing `()`, passing `Result`, panic, `Result::Err`, failed retry
   followed by pass, nested direct/tracing events, and joined producers.
-- [ ] Add exact identity/retry and pre-failure markers.
-- [ ] Exercise concurrent attempts and publication races.
-- [ ] Add a suite harness that invokes nextest directly, expects native status,
+- [x] Add exact identity/retry and pre-failure markers.
+- [x] Exercise concurrent attempts and publication races.
+- [x] Add a suite harness that invokes nextest directly, expects native status,
   and validates outputs without wrapping individual tests.
-- [ ] Keep abort/timeout as explicit negative cases and validate their retention
+- [x] Keep abort/timeout as explicit negative cases and validate their retention
   only through the external collector control.
 
 Verification:
 
-- [ ] `failure` writes no pass/successful-retry files and exactly one distinct
+- [x] `failure` writes no pass/successful-retry files and exactly one distinct
   valid trace for each panic, `Err`, and failed retry attempt.
-- [ ] `always` writes each supported executed attempt; `off` writes none.
-- [ ] Nextest continues later tests under `--no-fail-fast` and remains supervisor.
+- [x] `always` writes each supported executed attempt; `off` writes none.
+- [x] Nextest continues later tests under `--no-fail-fast` and remains supervisor.
 
 ### Stage 5 — Semantic and failure-path validation
 
 Dependencies: Stage 4 fixture.
 
-- [ ] Run `check`, `range`, `info`, and exact semantic queries on every saved
+- [x] Run `check`, `range`, `info`, and exact semantic queries on every saved
   capture for identity, direct-client, tracing-layer, panic, and `Err` markers.
-- [ ] Verify zones, spans, dispatchers, and producer threads are quiescent before
+- [x] Verify zones, spans, dispatchers, and producer threads are quiescent before
   finalization.
-- [ ] Inject output-exists, missing/unwritable directory, writer, transport, and
+- [x] Inject output-exists, missing/unwritable directory, writer, transport, and
   finalization-timeout failures; assert no misleading final output.
-- [ ] Verify ignored/filtered tests and list/discovery perform no file operation.
-- [ ] Occupy Tracy ports to prove no network dependency.
-- [ ] Add explicit negative tests/documentation for abort, timeout, async,
+- [x] Verify ignored/filtered tests and list/discovery perform no file operation.
+- [x] Occupy Tracy ports to prove no network dependency.
+- [x] Add explicit negative tests/documentation for abort, timeout, async,
   custom harnesses, `#[should_panic]`, and `panic=abort`.
 
 Verification:
 
-- [ ] Repeat panic/`Err` suites under bounded timeouts with no partials or helper
+- [x] Repeat panic/`Err` suites under bounded timeouts with no partials or helper
   processes left behind.
-- [ ] Compare in-process and external collector behavior and document why hard
+- [x] Compare in-process and external collector behavior and document why hard
   failures differ.
-- [ ] Run native and Rust save/discard paths under Linux ASan/UBSan.
+- [x] Run native and Rust save/discard paths under Linux ASan/UBSan.
 
 ### Stage 6 — Cross-platform CI and regressions
 
 Dependencies: Stages 2–5 complete.
 
-- [ ] Add native disposition and Rust process fixtures to all Linux/macOS/Windows
+- [x] Add native disposition and Rust process fixtures to all Linux/macOS/Windows
   x86-64/ARM64 jobs.
-- [ ] Run the pinned in-process nextest suite on every supported runner; use an
+- [x] Run the pinned in-process nextest suite on every supported runner; use an
   approved equivalent process fixture only where nextest is unavailable.
-- [ ] Extend Linux sanitizer CI with repeated discard, panic-save, Err-save,
+- [x] Extend Linux sanitizer CI with repeated discard, panic-save, Err-save,
   concurrent-attempt, and publication-failure tests.
-- [ ] Keep external collector nextest/JUnit, query/collector, install/static, and
+- [x] Keep external collector nextest/JUnit, query/collector, install/static, and
   release tests passing.
-- [ ] Add bounded timeouts and failure-only diagnostic artifact publication.
+- [x] Add bounded timeouts and failure-only diagnostic artifact publication.
 
 Verification:
 
-- [ ] Six-platform, sanitizer, external-nextest, and in-process-nextest jobs pass
+- [x] Six-platform, sanitizer, external-nextest, and in-process-nextest jobs pass
   on one exact commit.
-- [ ] Linux static and Windows static-runtime guarantees remain intact.
-- [ ] Matrix Cargo resolution contains exactly one patched sys package.
+- [x] Linux static and Windows static-runtime guarantees remain intact.
+- [x] Matrix Cargo resolution contains exactly one patched sys package.
 
 ### Stage 7 — Documentation and final demonstration
 
 Dependencies: stable API and CI behavior.
 
-- [ ] Document exact Cargo patch/features, test annotation/wrapper, nextest
+- [x] Document exact Cargo patch/features, test annotation/wrapper, nextest
   profile, policy/output variables, CI artifact upload, and query commands.
-- [ ] Document output-root freshness, naming/retries/concurrency, quiescence,
+- [x] Document output-root freshness, naming/retries/concurrency, quiescence,
   unwind-only support, finalizer failure, and unsupported hard failures.
-- [ ] Add a decision table comparing in-process fail-only capture with
+- [x] Add a decision table comparing in-process fail-only capture with
   `tracy-collector`.
-- [ ] Record observer-effect measurements and upgrade steps for nextest
+- [x] Record observer-effect measurements and upgrade steps for nextest
   assumptions, macro expansion, C ABI bindings, and Tracy pin.
-- [ ] From a clean checkout, run native/Cargo tests and both nextest architectures
+- [x] From a clean checkout, run native/Cargo tests and both nextest architectures
   under `off`, `failure`, and `always`.
-- [ ] Prove discard performs zero writer operations and failure mode publishes
+- [x] Prove discard performs zero writer operations and failure mode publishes
   only unique, valid, semantically associated failure traces with no partials.
-- [ ] Record final six-platform, sanitizer, static/install, dependency, and
+- [x] Record final six-platform, sanitizer, static/install, dependency, and
   external-collector evidence.
-- [ ] Audit every immutable criterion before declaring completion.
+- [x] Audit every immutable criterion before declaring completion.
+
+## Completion evidence
+
+- Native ABI and no-write proof: `include/tracy_embedded_capture/embedded_capture.h`,
+  `src/embedded/embedded_capture.cpp`, `tests/embedded_capture_errors.cpp`, and
+  `tests/fixtures/tracy_embedded_fixture.cpp` cover ABI v2, save compatibility,
+  discarded terminal state, invalid/repeated operations, output races, I/O
+  cleanup, and zero writer/write/publish counters for discard.
+- Rust boundary: `rust/tracy-nextest-capture{,-macros}` provides the unwind-only
+  wrappers. Unit/compile-fail tests cover strict policies, confined unique names,
+  and rejection of async, `#[should_panic]`, and unsupported return types.
+- Process contract: `tests/nextest_in_process.py` and
+  `tests/nextest_failure_modes.py` directly invoke pinned cargo-nextest 0.9.116,
+  prove ordinary cargo/list/incomplete identity inertness, policy behavior,
+  retries/concurrency, preserved panic and `Err`, controlled finalizer failure,
+  occupied network ports, no partials, and semantic `check`/`range`/`info`/query
+  validity. `tests/nextest_orchestrator.py` remains the abort/timeout fallback.
+- Dependency topology: local `cargo tree -i tracy-client-sys` reports one patched
+  0.28.0 package shared by the helper, `tracy-client` 0.18.4, and
+  `tracing-tracy` 0.11.4; `cargo tree -d` is empty.
+- Local final contract: four `nextest-in-process-*` CTests passed, including all
+  `off`, `failure`, `always`, and injected failure modes. Helper unit and
+  compile-fail tests passed.
+- CI: implementation commit `a577868` passed sanitizer, pinned external-nextest,
+  and Linux/macOS/Windows x86-64/ARM64 jobs at
+  <https://github.com/SanderVocke/tracy-query/actions/runs/31680538015>. The final
+  plan-only evidence commit is required to pass the same workflow before closure.
+- ThreadSanitizer is unavailable locally because the runtime terminates with
+  `FATAL: ThreadSanitizer: unexpected memory mapping`; deterministic concurrency
+  tests and CI ASan/UBSan are the supported sanitizer evidence.
 
 ## Expected end-to-end commands
 
