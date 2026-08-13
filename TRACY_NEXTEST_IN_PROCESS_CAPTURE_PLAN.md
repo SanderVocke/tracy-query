@@ -363,9 +363,9 @@ Dependencies: stable API and CI behavior.
 - Local final contract: four `nextest-in-process-*` CTests passed, including all
   `off`, `failure`, `always`, and injected failure modes. Helper unit and
   compile-fail tests passed.
-- CI: final implementation commit `f12610d` passed sanitizer, pinned
+- CI: final implementation commit `a106ea6` passed sanitizer, pinned
   external-nextest, and Linux/macOS/Windows x86-64/ARM64 jobs at
-  <https://github.com/SanderVocke/tracy-query/actions/runs/31690915246>.
+  <https://github.com/SanderVocke/tracy-query/actions/runs/31693150409>.
 - Observer-effect evidence in `docs/nextest-in-process-capture.md` records the
   exact timing/RSS command and representative wall, CPU, peak RSS, Debug binary,
   failure-trace, and bounded-channel high-water measurements without claiming an
