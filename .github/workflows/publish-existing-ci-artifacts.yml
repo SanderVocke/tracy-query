@@ -67,7 +67,7 @@ jobs:
 
           See `README.md` for CLI usage, `tracy-nextest-capture/docs/usage.md` for per-test capture, and `tracy-query/SKILL.md` for the LLM-agent debugging workflow.
           EOF
-          gh release create "$RELEASE_TAG" release/tracy-query-* tracy-query/SKILL.md \
+          gh release create "$RELEASE_TAG" release/tracy-query-* \
             --verify-tag \
             --title "tracy-extensions 0.4.0" \
             --notes-file release-notes.md
