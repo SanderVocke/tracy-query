@@ -1,0 +1,52 @@
+[package]
+name = "tracy-client-sys"
+version = "0.28.0"
+edition = "2021"
+rust-version = "1.70"
+authors = ["Simonas Kazlauskas <tracy-client-sys@kazlauskas.me>"]
+build = "build.rs"
+license = "(MIT OR Apache-2.0) AND BSD-3-Clause"
+repository = "https://github.com/nagisa/rust_tracy_client"
+homepage = "https://github.com/nagisa/rust_tracy_client"
+documentation = "https://docs.rs/tracy-client-sys"
+description = "Low level bindings to Tracy 0.13.1 with an in-process capture backend"
+readme = "README.mkd"
+
+[target.'cfg(windows)'.dependencies]
+windows-targets = ">=0.48, <0.53"
+
+[lib]
+name = "tracy_client_sys"
+path = "src/lib.rs"
+
+[[test]]
+name = "ordinary-client"
+path = "tests/ordinary_client.rs"
+harness = false
+required-features = ["enable"]
+
+[features]
+default = ["enable", "system-tracing", "context-switch-tracing", "sampling", "code-transfer", "broadcast", "callstack-inlines", "crash-handler"]
+enable = []
+fibers = []
+system-tracing = []
+context-switch-tracing = []
+sampling = []
+code-transfer = []
+broadcast = []
+only-localhost = []
+only-ipv4 = []
+timer-fallback = []
+ondemand = []
+manual-lifetime = ["delayed-init"]
+delayed-init = []
+callstack-inlines = []
+flush-on-exit = []
+demangle = []
+verify = []
+debuginfod = []
+crash-handler = []
+embedded-capture = ["enable", "manual-lifetime", "ondemand"]
+
+[package.metadata.docs.rs]
+all-features = true

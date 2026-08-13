@@ -17,9 +17,11 @@ if(TRACY_QUERY_FULLY_STATIC AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(FATAL_ERROR "TRACY_QUERY_FULLY_STATIC is currently supported only on Linux")
 endif()
 
-# Keep Windows release binaries independent of the separately installed MSVC
-# and Universal C runtimes. Windows system DLLs remain normal OS dependencies.
-if(MSVC)
+# Keep release executables independent of separately installed MSVC/UCRT
+# redistributables. Cargo's build script disables this override so the native
+# archive follows Rust's selected crt-static target feature instead.
+option(TRACY_QUERY_STATIC_MSVC_RUNTIME "Use the static MSVC runtime" ON)
+if(MSVC AND TRACY_QUERY_STATIC_MSVC_RUNTIME)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
@@ -28,6 +30,113 @@ endif()
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build dependencies as static libraries" FORCE)
 
 include(cmake/TracyServer.cmake)
+
+# These cache switches mirror tracy-client-sys features when this project is
+# configured by its build script. Repository-native fixtures intentionally use
+# the low-overhead defaults.
+option(TRACY_NATIVE_ON_DEMAND "Enable Tracy on-demand mode in native client libraries" ON)
+option(TRACY_NATIVE_MANUAL_LIFETIME "Enable Tracy manual lifetime in ordinary client library" OFF)
+option(TRACY_NATIVE_DELAYED_INIT "Enable Tracy delayed initialization in ordinary client library" OFF)
+option(TRACY_NATIVE_FLUSH_ON_EXIT "Keep Tracy alive to flush on process exit" OFF)
+option(TRACY_NATIVE_DEBUGINFOD "Enable Tracy debuginfod integration" OFF)
+option(TRACY_NATIVE_ONLY_LOCALHOST "Restrict ordinary Tracy client sockets to localhost" OFF)
+option(TRACY_NATIVE_ONLY_IPV4 "Restrict ordinary Tracy client sockets to IPv4" OFF)
+option(TRACY_NATIVE_TIMER_FALLBACK "Use Tracy's timer fallback" OFF)
+if(BUILD_TESTING AND APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    # GitHub's macOS Intel runners do not expose invariant TSC to the VM.
+    set(TRACY_NATIVE_TIMER_FALLBACK ON CACHE BOOL "Use Tracy's timer fallback" FORCE)
+endif()
+option(TRACY_NATIVE_SYSTEM_TRACING "Enable Tracy system tracing" OFF)
+option(TRACY_NATIVE_CONTEXT_SWITCH "Enable Tracy context switch tracing" OFF)
+option(TRACY_NATIVE_SAMPLING "Enable Tracy sampling" OFF)
+option(TRACY_NATIVE_CODE_TRANSFER "Enable Tracy code transfer" OFF)
+option(TRACY_NATIVE_BROADCAST "Enable Tracy network discovery broadcast" OFF)
+option(TRACY_NATIVE_CALLSTACK_INLINES "Enable Tracy callstack inlines" OFF)
+option(TRACY_NATIVE_CRASH_HANDLER "Enable Tracy crash handler" OFF)
+option(TRACY_NATIVE_VERIFY "Enable Tracy instrumentation verification" OFF)
+option(TRACY_NATIVE_DEMANGLE "Enable Tracy demangling hook" OFF)
+option(TRACY_NATIVE_FIBERS "Enable Tracy fibers" OFF)
+
+function(tracy_native_configure_client target force_manual_lifetime)
+    target_compile_definitions(${target} PUBLIC TRACY_ENABLE)
+    if(force_manual_lifetime OR TRACY_NATIVE_MANUAL_LIFETIME)
+        target_compile_definitions(${target} PUBLIC TRACY_DELAYED_INIT TRACY_MANUAL_LIFETIME)
+    elseif(TRACY_NATIVE_DELAYED_INIT)
+        target_compile_definitions(${target} PUBLIC TRACY_DELAYED_INIT)
+    endif()
+    if(TRACY_NATIVE_FLUSH_ON_EXIT)
+        target_compile_definitions(${target} PUBLIC TRACY_NO_EXIT)
+    endif()
+    if(TRACY_NATIVE_DEBUGINFOD)
+        target_compile_definitions(${target} PUBLIC TRACY_DEBUGINFOD)
+        target_link_libraries(${target} PUBLIC debuginfod)
+    endif()
+    foreach(_feature IN ITEMS ON_DEMAND ONLY_LOCALHOST ONLY_IPV4 TIMER_FALLBACK DEMANGLE FIBERS)
+        if(TRACY_NATIVE_${_feature})
+            target_compile_definitions(${target} PUBLIC TRACY_${_feature})
+        endif()
+    endforeach()
+    foreach(_feature IN ITEMS SYSTEM_TRACING CONTEXT_SWITCH SAMPLING CODE_TRANSFER BROADCAST CALLSTACK_INLINES CRASH_HANDLER VERIFY)
+        if(NOT TRACY_NATIVE_${_feature})
+            target_compile_definitions(${target} PUBLIC TRACY_NO_${_feature})
+        endif()
+    endforeach()
+endfunction()
+
+add_library(tracy_instrumentation_client_native STATIC "${tracy_0131_SOURCE_DIR}/public/TracyClient.cpp")
+target_compile_features(tracy_instrumentation_client_native PUBLIC cxx_std_20)
+tracy_native_configure_client(tracy_instrumentation_client_native FALSE)
+target_include_directories(
+    tracy_instrumentation_client_native SYSTEM PUBLIC "${tracy_0131_SOURCE_DIR}/public"
+)
+target_link_libraries(tracy_instrumentation_client_native PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
+
+# Complete Tracy client and server in one library for the opt-in embedded
+# capture backend. TracyClient.cpp supplies common system, LZ4, socket, and
+# stack-frame symbols; only server-specific implementation files are compiled
+# again here to avoid duplicate definitions.
+add_library(
+    tracy_embedded_capture_native STATIC
+    "${tracy_0131_SOURCE_DIR}/public/TracyClient.cpp"
+    "${tracy_0131_SOURCE_DIR}/public/common/TracyStackFrames.cpp"
+    "${tracy_0131_SOURCE_DIR}/public/common/tracy_lz4hc.cpp"
+    "${tracy_0131_SOURCE_DIR}/server/TracyMemory.cpp"
+    "${tracy_0131_SOURCE_DIR}/server/TracyMmap.cpp"
+    "${tracy_0131_SOURCE_DIR}/server/TracyPrint.cpp"
+    "${tracy_0131_SOURCE_DIR}/server/TracySysUtil.cpp"
+    "${tracy_0131_SOURCE_DIR}/server/TracyTaskDispatch.cpp"
+    "${tracy_0131_SOURCE_DIR}/server/TracyTextureCompression.cpp"
+    "${tracy_0131_SOURCE_DIR}/server/TracyThreadCompress.cpp"
+    "${tracy_0131_SOURCE_DIR}/server/TracyWorker.cpp"
+    src/embedded/TracyEmbeddedTransport.cpp
+    src/embedded/embedded_capture.cpp
+)
+add_library(TracyQuery::EmbeddedCapture ALIAS tracy_embedded_capture_native)
+target_compile_features(tracy_embedded_capture_native PUBLIC cxx_std_20)
+tracy_native_configure_client(tracy_embedded_capture_native TRUE)
+target_compile_definitions(tracy_embedded_capture_native PUBLIC TRACY_EMBEDDED_CAPTURE TRACY_NO_BROADCAST)
+target_include_directories(tracy_embedded_capture_native PUBLIC include)
+target_include_directories(
+    tracy_embedded_capture_native SYSTEM
+    PUBLIC
+        "${tracy_0131_SOURCE_DIR}/public"
+        "${tracy_0131_SOURCE_DIR}/public/common"
+        "${tracy_0131_SOURCE_DIR}/server"
+    PRIVATE
+        "${tracy_capstone_SOURCE_DIR}/include/capstone"
+        "${tracy_zstd_SOURCE_DIR}/lib"
+        "${tracy_ppqsort_SOURCE_DIR}/include"
+)
+target_link_libraries(
+    tracy_embedded_capture_native
+    PUBLIC capstone_static libzstd_static tracy_ppqsort_headers Threads::Threads ${CMAKE_DL_LIBS}
+)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(tracy_embedded_capture_native PRIVATE -fno-sanitize=enum)
+endif()
+if(BUILD_TESTING)
+    target_compile_definitions(tracy_embedded_capture_native PRIVATE TRACY_EMBEDDED_CAPTURE_TESTING=1)
+endif()
 
 add_library(
     tracy_query_core STATIC
@@ -90,6 +199,177 @@ install(TARGETS tracy-query tracy-collector RUNTIME DESTINATION ${CMAKE_INSTALL_
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(
+        tracy-embedded-transport-unit-tests
+        tests/embedded_transport_unit.cpp
+        src/embedded/TracyEmbeddedTransport.cpp
+    )
+    target_compile_features(tracy-embedded-transport-unit-tests PRIVATE cxx_std_20)
+    target_include_directories(tracy-embedded-transport-unit-tests PRIVATE src/embedded)
+    target_link_libraries(tracy-embedded-transport-unit-tests PRIVATE Threads::Threads)
+    tracy_query_apply_warnings(tracy-embedded-transport-unit-tests)
+    foreach(_mode IN ITEMS core peer-destroy cancel)
+        add_test(
+            NAME embedded-transport-${_mode}
+            COMMAND tracy-embedded-transport-unit-tests ${_mode}
+        )
+        set_tests_properties(embedded-transport-${_mode} PROPERTIES TIMEOUT 30)
+    endforeach()
+
+    add_executable(tracy-embedded-capture-fixture tests/fixtures/tracy_embedded_fixture.cpp)
+    target_link_libraries(tracy-embedded-capture-fixture PRIVATE TracyQuery::EmbeddedCapture)
+    tracy_query_apply_warnings(tracy-embedded-capture-fixture)
+    add_test(
+        NAME embedded-capture-native
+        COMMAND ${CMAKE_COMMAND}
+                -DFIXTURE=$<TARGET_FILE:tracy-embedded-capture-fixture>
+                -DTRACY_QUERY=$<TARGET_FILE:tracy-query>
+                -DOUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/embedded-native.tracy
+                -DREQUIRE_CALLSTACK=ON
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_embedded_capture.cmake
+    )
+    set_tests_properties(embedded-capture-native PROPERTIES TIMEOUT 60)
+    add_test(
+        NAME embedded-capture-discard
+        COMMAND tracy-embedded-capture-fixture
+                ${CMAKE_CURRENT_BINARY_DIR}/embedded-discard.tracy
+                discard
+    )
+    add_test(
+        NAME embedded-capture-existing-at-finish
+        COMMAND tracy-embedded-capture-fixture
+                ${CMAKE_CURRENT_BINARY_DIR}/embedded-existing-at-finish.tracy
+                existing-at-finish
+    )
+    add_test(
+        NAME embedded-capture-writer-error
+        COMMAND tracy-embedded-capture-fixture
+                ${CMAKE_CURRENT_BINARY_DIR}/missing-embedded-parent/capture.tracy
+                expect-io-error
+    )
+    add_test(
+        NAME embedded-capture-writer-open-failure
+        COMMAND tracy-embedded-capture-fixture
+                ${CMAKE_CURRENT_BINARY_DIR}/embedded-writer-open-failure.tracy
+                writer-open-failure
+    )
+    add_test(
+        NAME embedded-capture-finish-timeout
+        COMMAND tracy-embedded-capture-fixture
+                ${CMAKE_CURRENT_BINARY_DIR}/embedded-finish-timeout.tracy
+                finish-timeout
+    )
+    set_tests_properties(
+        embedded-capture-discard embedded-capture-existing-at-finish
+        embedded-capture-writer-error embedded-capture-writer-open-failure
+        embedded-capture-finish-timeout
+        PROPERTIES TIMEOUT 60
+    )
+
+    add_executable(tracy-embedded-capture-errors tests/embedded_capture_errors.cpp)
+    target_link_libraries(tracy-embedded-capture-errors PRIVATE TracyQuery::EmbeddedCapture)
+    tracy_query_apply_warnings(tracy-embedded-capture-errors)
+    foreach(_mode IN ITEMS invalid existing duplicate invalid-disposition no-data)
+        add_test(
+            NAME embedded-capture-error-${_mode}
+            COMMAND tracy-embedded-capture-errors ${_mode}
+                    ${CMAKE_CURRENT_BINARY_DIR}/embedded-error-${_mode}.tracy
+        )
+        set_tests_properties(embedded-capture-error-${_mode} PROPERTIES TIMEOUT 30)
+    endforeach()
+
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    find_program(CARGO_EXECUTABLE NAMES cargo)
+    set(CARGO_NEXTEST_IN_PROCESS_EXECUTABLE "" CACHE FILEPATH "cargo-nextest executable for in-process capture tests")
+    if(CARGO_EXECUTABLE)
+        add_test(
+            NAME embedded-capture-rust-normal
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/examples/rust-embedded-capture/run_demo.py
+                    --mode normal
+                    --output ${CMAKE_CURRENT_BINARY_DIR}/rust-embedded-normal.tracy
+                    --query $<TARGET_FILE:tracy-query>
+                    --target-dir ${CMAKE_CURRENT_BINARY_DIR}/rust-embedded-target
+        )
+        add_test(
+            NAME embedded-capture-rust-panic
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/examples/rust-embedded-capture/run_demo.py
+                    --mode unwind-panic
+                    --output ${CMAKE_CURRENT_BINARY_DIR}/rust-embedded-panic.tracy
+                    --query $<TARGET_FILE:tracy-query>
+                    --target-dir ${CMAKE_CURRENT_BINARY_DIR}/rust-embedded-target
+        )
+        set_tests_properties(
+            embedded-capture-rust-normal embedded-capture-rust-panic
+            PROPERTIES
+                TIMEOUT 900
+                RUN_SERIAL TRUE
+                ENVIRONMENT "TRACY_QUERY_CMAKE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+        )
+        set_tests_properties(embedded-capture-rust-panic PROPERTIES DEPENDS embedded-capture-rust-normal)
+
+        add_test(
+            NAME nextest-in-process-helper-unit
+            COMMAND ${CARGO_EXECUTABLE} test
+                    --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/rust/tracy-nextest-capture/Cargo.toml
+                    --locked
+        )
+        set_tests_properties(
+            nextest-in-process-helper-unit
+            PROPERTIES
+                TIMEOUT 900
+                RUN_SERIAL TRUE
+                ENVIRONMENT "TRACY_QUERY_CMAKE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+        )
+
+        if(NOT CARGO_NEXTEST_IN_PROCESS_EXECUTABLE)
+            find_program(CARGO_NEXTEST_IN_PROCESS_EXECUTABLE NAMES cargo-nextest)
+        endif()
+        if(CARGO_NEXTEST_IN_PROCESS_EXECUTABLE)
+            foreach(_policy IN ITEMS off failure always)
+                add_test(
+                    NAME nextest-in-process-${_policy}
+                    COMMAND ${Python3_EXECUTABLE}
+                            ${CMAKE_CURRENT_SOURCE_DIR}/tests/nextest_in_process.py
+                            --nextest ${CARGO_NEXTEST_IN_PROCESS_EXECUTABLE}
+                            --manifest ${CMAKE_CURRENT_SOURCE_DIR}/tests/nextest-in-process-fixture/Cargo.toml
+                            --query $<TARGET_FILE:tracy-query>
+                            --work ${CMAKE_CURRENT_BINARY_DIR}/nextest-in-process-${_policy}
+                            --target-dir ${CMAKE_CURRENT_BINARY_DIR}/nextest-in-process-target
+                            --policy ${_policy}
+                )
+                set_tests_properties(
+                    nextest-in-process-${_policy}
+                    PROPERTIES
+                        TIMEOUT 1800
+                        RUN_SERIAL TRUE
+                        ENVIRONMENT "TRACY_QUERY_CMAKE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+                )
+            endforeach()
+            add_test(
+                NAME nextest-in-process-failure-modes
+                COMMAND ${Python3_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tests/nextest_failure_modes.py
+                        --nextest ${CARGO_NEXTEST_IN_PROCESS_EXECUTABLE}
+                        --manifest ${CMAKE_CURRENT_SOURCE_DIR}/tests/nextest-in-process-fixture/Cargo.toml
+                        --work ${CMAKE_CURRENT_BINARY_DIR}/nextest-in-process-failure-modes
+                        --target-dir ${CMAKE_CURRENT_BINARY_DIR}/nextest-in-process-target
+            )
+            set_tests_properties(
+                nextest-in-process-failure-modes
+                PROPERTIES
+                    TIMEOUT 1800
+                    RUN_SERIAL TRUE
+                    ENVIRONMENT "TRACY_QUERY_CMAKE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+            )
+        else()
+            message(STATUS "cargo-nextest not found; dedicated CI runs the in-process nextest contract")
+        endif()
+    else()
+        message(STATUS "cargo not found; Rust embedded-capture examples are not added to CTest")
+    endif()
+
     add_executable(tracy-query-unit-tests tests/unit.cpp)
     target_link_libraries(tracy-query-unit-tests PRIVATE tracy_query_core)
     add_test(NAME unit COMMAND tracy-query-unit-tests)
@@ -106,7 +386,12 @@ if(BUILD_TESTING)
     target_compile_features(tracy_collector_tracy_client PUBLIC cxx_std_20)
     target_compile_definitions(
         tracy_collector_tracy_client
-        PUBLIC TRACY_ENABLE TRACY_ON_DEMAND TRACY_DELAYED_INIT TRACY_ONLY_LOCALHOST TRACY_ONLY_IPV4 TRACY_TIMER_FALLBACK
+        PUBLIC
+            TRACY_ENABLE TRACY_ON_DEMAND TRACY_DELAYED_INIT
+            TRACY_ONLY_LOCALHOST TRACY_ONLY_IPV4 TRACY_TIMER_FALLBACK
+            TRACY_NO_SYSTEM_TRACING TRACY_NO_CONTEXT_SWITCH TRACY_NO_SAMPLING
+            TRACY_NO_CODE_TRANSFER TRACY_NO_BROADCAST TRACY_NO_CALLSTACK_INLINES
+            TRACY_NO_CRASH_HANDLER
     )
     target_include_directories(
         tracy_collector_tracy_client
@@ -131,7 +416,27 @@ if(BUILD_TESTING)
     add_executable(tracy-collector-long-fixture tests/fixtures/tracy_long_fixture.cpp)
     target_link_libraries(tracy-collector-long-fixture PRIVATE tracy_collector_tracy_client)
 
-    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    add_executable(
+        tracy-loopback-control-fixture
+        tests/fixtures/tracy_loopback_control_fixture.cpp
+    )
+    target_link_libraries(
+        tracy-loopback-control-fixture
+        PRIVATE tracy_collector_tracy_client TracyQuery::TracyServer
+    )
+    add_test(
+        NAME embedded-capture-loopback-control
+        COMMAND ${CMAKE_COMMAND}
+                -DFIXTURE=$<TARGET_FILE:tracy-loopback-control-fixture>
+                -DTRACY_QUERY=$<TARGET_FILE:tracy-query>
+                -DOUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/embedded-loopback-control.tracy
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_embedded_capture.cmake
+    )
+    set_tests_properties(
+        embedded-capture-loopback-control
+        PROPERTIES TIMEOUT 60 RUN_SERIAL TRUE ENVIRONMENT "TRACY_PORT=61731"
+    )
+
     add_test(
         NAME collector-protocol-live
         COMMAND ${Python3_EXECUTABLE}
@@ -145,7 +450,10 @@ if(BUILD_TESTING)
     )
     set_tests_properties(collector-protocol-live PROPERTIES TIMEOUT 180)
 
-    find_program(CARGO_NEXTEST_EXECUTABLE NAMES cargo-nextest)
+    set(CARGO_NEXTEST_EXECUTABLE "" CACHE FILEPATH "cargo-nextest executable for collector contract")
+    if(NOT CARGO_NEXTEST_EXECUTABLE)
+        find_program(CARGO_NEXTEST_EXECUTABLE NAMES cargo-nextest)
+    endif()
     if(CARGO_NEXTEST_EXECUTABLE)
         add_test(
             NAME collector-nextest-contract

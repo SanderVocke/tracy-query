@@ -24,6 +24,55 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(tracy_0131 tracy_ppqsort)
 
+# Install the project-owned embedded transport overlay into the pinned Tracy
+# tree. Only targets compiled with TRACY_EMBEDDED_CAPTURE select it; ordinary
+# Tracy socket behavior is unchanged. Keep these exact, idempotent edits here so
+# CMake and the patched tracy-client-sys build consume one reviewed patch set.
+configure_file(
+    "${CMAKE_CURRENT_LIST_DIR}/../src/embedded/TracyEmbeddedTransport.hpp"
+    "${tracy_0131_SOURCE_DIR}/public/common/TracyEmbeddedTransport.hpp"
+    COPYONLY
+)
+configure_file(
+    "${CMAKE_CURRENT_LIST_DIR}/../src/embedded/TracyEmbeddedSocket.cpp"
+    "${tracy_0131_SOURCE_DIR}/public/common/TracyEmbeddedSocket.cpp"
+    COPYONLY
+)
+
+set(_tracy_client_source "${tracy_0131_SOURCE_DIR}/public/TracyClient.cpp")
+file(READ "${_tracy_client_source}" _tracy_client_contents)
+if(NOT _tracy_client_contents MATCHES "TracyEmbeddedSocket.cpp")
+    string(REPLACE
+        "#include \"common/TracySocket.cpp\""
+        "#ifdef TRACY_EMBEDDED_CAPTURE\n#include \"common/TracyEmbeddedSocket.cpp\"\n#else\n#include \"common/TracySocket.cpp\"\n#endif"
+        _tracy_client_contents
+        "${_tracy_client_contents}"
+    )
+endif()
+if(NOT _tracy_client_contents MATCHES "TracyEmbeddedSocket.cpp")
+    message(FATAL_ERROR "Tracy 0.13.1 client socket include patch did not apply")
+endif()
+file(WRITE "${_tracy_client_source}" "${_tracy_client_contents}")
+unset(_tracy_client_contents)
+unset(_tracy_client_source)
+
+set(_tracy_socket_header "${tracy_0131_SOURCE_DIR}/public/common/TracySocket.hpp")
+file(READ "${_tracy_socket_header}" _tracy_socket_contents)
+if(NOT _tracy_socket_contents MATCHES "TRACY_EMBEDDED_CAPTURE_FIELDS")
+    string(REPLACE
+        "    char* m_buf;\n    char* m_bufPtr;\n    std::atomic<int> m_sock;\n    int m_bufLeft;\n\n    struct addrinfo *m_res;\n    struct addrinfo *m_ptr;\n    int m_connSock;"
+        "#ifdef TRACY_EMBEDDED_CAPTURE\n    // TRACY_EMBEDDED_CAPTURE_FIELDS\n    void* m_embedded;\n#else\n    char* m_buf;\n    char* m_bufPtr;\n    std::atomic<int> m_sock;\n    int m_bufLeft;\n\n    struct addrinfo *m_res;\n    struct addrinfo *m_ptr;\n    int m_connSock;\n#endif"
+        _tracy_socket_contents
+        "${_tracy_socket_contents}"
+    )
+endif()
+if(NOT _tracy_socket_contents MATCHES "TRACY_EMBEDDED_CAPTURE_FIELDS")
+    message(FATAL_ERROR "Tracy 0.13.1 embedded Socket layout patch did not apply")
+endif()
+file(WRITE "${_tracy_socket_header}" "${_tracy_socket_contents}")
+unset(_tracy_socket_contents)
+unset(_tracy_socket_header)
+
 # Tracy 0.13.1 initializes an unsigned byte with -1. GCC accepts this default
 # member initializer, but MSVC correctly rejects the narrowing conversion when
 # the structural fixture includes TracyEvent.hpp directly. Preserve the exact
@@ -94,6 +143,27 @@ file(WRITE "${_tracy_worker_header}" "${_tracy_worker_contents}")
 unset(_tracy_query_accessors)
 unset(_tracy_worker_contents)
 unset(_tracy_worker_header)
+
+# In a combined manual-lifetime client/server process, Tracy's common
+# SetThreadName() also records client metadata. The endpoint-backed Worker must
+# start before the client profiler exists, so defer naming only these two early
+# server threads in embedded builds.
+set(_tracy_worker_source "${tracy_0131_SOURCE_DIR}/server/TracyWorker.cpp")
+file(READ "${_tracy_worker_source}" _tracy_worker_source_contents)
+if(NOT _tracy_worker_source_contents MATCHES "TRACY_EMBEDDED_CAPTURE_EARLY_THREADS")
+    string(REPLACE
+        "    m_thread = std::thread( [this] { SetThreadName( \"Tracy Worker\" ); Exec(); } );\n    m_threadNet = std::thread( [this] { SetThreadName( \"Tracy Network\" ); Network(); } );"
+        "#ifdef TRACY_EMBEDDED_CAPTURE\n    // TRACY_EMBEDDED_CAPTURE_EARLY_THREADS: client manual lifetime has not started yet.\n    m_thread = std::thread( [this] { Exec(); } );\n    m_threadNet = std::thread( [this] { Network(); } );\n#else\n    m_thread = std::thread( [this] { SetThreadName( \"Tracy Worker\" ); Exec(); } );\n    m_threadNet = std::thread( [this] { SetThreadName( \"Tracy Network\" ); Network(); } );\n#endif"
+        _tracy_worker_source_contents
+        "${_tracy_worker_source_contents}"
+    )
+endif()
+if(NOT _tracy_worker_source_contents MATCHES "TRACY_EMBEDDED_CAPTURE_EARLY_THREADS")
+    message(FATAL_ERROR "Tracy 0.13.1 early Worker thread patch did not apply")
+endif()
+file(WRITE "${_tracy_worker_source}" "${_tracy_worker_source_contents}")
+unset(_tracy_worker_source_contents)
+unset(_tracy_worker_source)
 
 set(CAPSTONE_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(CAPSTONE_BUILD_STATIC_LIBS ON CACHE BOOL "" FORCE)
