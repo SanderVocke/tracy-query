@@ -639,9 +639,9 @@ build/tracy-query query --kind cpu-zone,message \
 
 Completion evidence:
 
-- Verification environment: branch `plan/in-process-capture`, audited code/test
-  commit `b8bb06a0e0550e46a64265425f3ac824e04eff26`. The CI run links below identify
-  that exact tested SHA; the following commit only records this evidence.
+- Verification environment: branch `plan/in-process-capture`, final audited
+  code/test/CI commit `87bc78433a14c382fcbba3eba394ace4341a8b6a`. The following
+  commit only updates this recorded evidence.
 - Complete native regression evidence: local Debug build ran all 55 then-current
   CTests successfully; the final audit split transport shutdown into explicit
   core, peer-destroy, and coordinator-cancel process tests, and local plus
@@ -649,7 +649,7 @@ Completion evidence:
 - Sanitizer evidence: local ASan/UBSan embedded native and Rust normal/panic
   suites passed repeatedly; the CI sanitizer job includes all of them and its
   prior native run passed at
-  <https://github.com/SanderVocke/tracy-query/actions/runs/31652863438/job/94300786772>.
+  <https://github.com/SanderVocke/tracy-query/actions/runs/31654475556/job/94305767406>.
   ThreadSanitizer was attempted locally but is unsupported by the local Nix/glibc
   runtime (`unexpected memory mapping`); close/backpressure concurrency remains
   covered by deterministic tests and ASan/UBSan.
@@ -664,11 +664,11 @@ Completion evidence:
   panic, occupies Tracy TCP/UDP ports, checks no partials, and queries exact
   direct-client and tracing-layer semantic markers.
 - Cross-platform/static/packaging evidence: CI run
-  <https://github.com/SanderVocke/tracy-query/actions/runs/31652863438> passed
+  <https://github.com/SanderVocke/tracy-query/actions/runs/31654475556> passed
   Linux, macOS, and Windows on x86-64 and ARM64, including Linux full-static
   verification, installation and installed executable smoke tests. The pinned
   nextest/network collector contract passed at
-  <https://github.com/SanderVocke/tracy-query/actions/runs/31652863438/job/94300786804>.
+  <https://github.com/SanderVocke/tracy-query/actions/runs/31654475556/job/94305767477>.
 - Observer-effect measurements and limitations are recorded in
   `docs/in-process-capture.md`; exact demonstration commands are in
   `examples/rust-embedded-capture/README.md` and the root README.
