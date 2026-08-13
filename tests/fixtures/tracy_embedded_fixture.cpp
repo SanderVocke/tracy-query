@@ -41,7 +41,7 @@ void emit_events() {
 
 int main(int argc, char** argv) {
     if (argc < 2 || argc > 3) {
-        std::fprintf(stderr, "usage: tracy-embedded-fixture OUTPUT.tracy [existing-at-finish|expect-io-error]\n");
+        std::fprintf(stderr, "usage: tracy-embedded-fixture OUTPUT.tracy [discard|existing-at-finish|expect-io-error]\n");
         return 2;
     }
     const std::string mode = argc == 3 ? argv[2] : "success";
@@ -67,7 +67,25 @@ int main(int argc, char** argv) {
     if (mode == "existing-at-finish") {
         std::ofstream(argv[1]) << "sentinel";
     }
-    status = ___tracy_embedded_capture_finish();
+    status = mode == "discard"
+                 ? ___tracy_embedded_capture_finish_with_disposition(
+                       TRACY_EMBEDDED_CAPTURE_DISCARD)
+                 : ___tracy_embedded_capture_finish();
+    if (mode == "discard") {
+        tracy_embedded_capture_statistics statistics{};
+        const auto statisticsStatus =
+            ___tracy_embedded_capture_get_statistics(&statistics);
+        return status == TRACY_EMBEDDED_CAPTURE_OK &&
+                       statisticsStatus == TRACY_EMBEDDED_CAPTURE_OK &&
+                       ___tracy_embedded_capture_get_state() ==
+                           TRACY_EMBEDDED_CAPTURE_DISCARDED &&
+                       statistics.writer_open_count == 0 &&
+                       statistics.worker_write_count == 0 &&
+                       statistics.publish_count == 0 &&
+                       !std::filesystem::exists(argv[1])
+                   ? 0
+                   : 33;
+    }
     if (mode == "existing-at-finish") {
         std::ifstream input(argv[1]);
         std::string contents;

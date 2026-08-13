@@ -54,11 +54,13 @@ unconfigured -> configured -> starting -> capturing -> finishing -> finished
 5. `___tracy_embedded_capture_finish()` requests Tracy's normal manual shutdown.
    The client drains committed producer/serial queues and sends termination;
    Worker metadata queries and termination complete before both sides join.
-6. The retained Worker writes a same-directory partial capture. Closing the
-   writer finishes compression. A non-empty partial is renamed atomically to the
-   requested final path.
+6. The caller chooses a disposition. Save writes a same-directory partial
+   capture, closes compression, and atomically renames a non-empty file. Discard
+   destroys the drained Worker model without opening any output file.
 
-Configure and finish are one-shot operations. Restarting Tracy or creating a
+`___tracy_embedded_capture_finish()` remains the save shorthand;
+`___tracy_embedded_capture_finish_with_disposition()` selects save or discard.
+Configure and finalization are one-shot operations. Restarting Tracy or creating a
 second capture in one process is unsupported. The output path must not already
 exist. No C++ exception crosses the C ABI. The ABI validates UTF-8; on Windows,
 Tracy 0.13.1's narrow `fopen` writer additionally requires the path to be

@@ -8,7 +8,12 @@
 extern "C" {
 #endif
 
-enum { TRACY_EMBEDDED_CAPTURE_ABI_VERSION = 1 };
+enum { TRACY_EMBEDDED_CAPTURE_ABI_VERSION = 2 };
+
+typedef enum tracy_embedded_capture_disposition {
+    TRACY_EMBEDDED_CAPTURE_SAVE = 1,
+    TRACY_EMBEDDED_CAPTURE_DISCARD = 2
+} tracy_embedded_capture_disposition;
 
 typedef enum tracy_embedded_capture_status {
     TRACY_EMBEDDED_CAPTURE_OK = 0,
@@ -27,7 +32,8 @@ typedef enum tracy_embedded_capture_state {
     TRACY_EMBEDDED_CAPTURE_CAPTURING = 2,
     TRACY_EMBEDDED_CAPTURE_FINISHING = 3,
     TRACY_EMBEDDED_CAPTURE_FINISHED = 4,
-    TRACY_EMBEDDED_CAPTURE_FAILED = 5
+    TRACY_EMBEDDED_CAPTURE_FAILED = 5,
+    TRACY_EMBEDDED_CAPTURE_DISCARDED = 6
 } tracy_embedded_capture_state;
 
 typedef struct tracy_embedded_capture_statistics {
@@ -35,6 +41,9 @@ typedef struct tracy_embedded_capture_statistics {
     uint64_t server_to_client_bytes;
     uint64_t client_to_server_high_water;
     uint64_t server_to_client_high_water;
+    uint64_t writer_open_count;
+    uint64_t worker_write_count;
+    uint64_t publish_count;
 } tracy_embedded_capture_statistics;
 
 /* Configure one process-global capture. Call before Tracy manual startup.
@@ -45,7 +54,11 @@ int32_t ___tracy_embedded_capture_configure(const char* path, size_t path_len,
                                              int64_t worker_memory_limit);
 
 /* Finalize after every instrumentation-producing thread and active zone/guard
- * has quiesced. This performs Tracy manual shutdown and publishes the capture. */
+ * has quiesced. SAVE publishes atomically; DISCARD drains and destroys the
+ * in-memory model without opening an output file. */
+int32_t ___tracy_embedded_capture_finish_with_disposition(int32_t disposition);
+
+/* Backward-compatible shorthand for SAVE. */
 int32_t ___tracy_embedded_capture_finish(void);
 
 uint32_t ___tracy_embedded_capture_abi_version(void);

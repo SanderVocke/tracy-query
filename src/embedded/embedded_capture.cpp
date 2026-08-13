@@ -41,6 +41,9 @@ struct Coordinator {
     std::filesystem::path output;
     std::unique_ptr<tracy::Worker> worker;
     std::string error;
+    std::uint64_t writerOpenCount = 0;
+    std::uint64_t workerWriteCount = 0;
+    std::uint64_t publishCount = 0;
 };
 
 Coordinator& coordinator() {
@@ -106,12 +109,17 @@ void atomicPublish(const std::filesystem::path& partial,
 #endif
 }
 
-int32_t finishImpl() {
+int32_t finishImpl(const int32_t disposition) {
     auto& value = coordinator();
     tracy::Worker* worker = nullptr;
     std::filesystem::path output;
     {
         std::lock_guard lock(value.mutex);
+        if (disposition != TRACY_EMBEDDED_CAPTURE_SAVE &&
+            disposition != TRACY_EMBEDDED_CAPTURE_DISCARD) {
+            value.error = "embedded capture disposition is invalid";
+            return TRACY_EMBEDDED_CAPTURE_INVALID_ARGUMENT;
+        }
         if (value.state != TRACY_EMBEDDED_CAPTURE_CONFIGURED &&
             value.state != TRACY_EMBEDDED_CAPTURE_CAPTURING) {
             value.error = "embedded capture finish called in an invalid state";
@@ -145,6 +153,18 @@ int32_t finishImpl() {
         return TRACY_EMBEDDED_CAPTURE_TRANSPORT_ERROR;
     }
 
+    if (disposition == TRACY_EMBEDDED_CAPTURE_DISCARD) {
+        std::unique_ptr<tracy::Worker> discardedWorker;
+        {
+            std::lock_guard lock(value.mutex);
+            value.state = TRACY_EMBEDDED_CAPTURE_DISCARDED;
+            value.error.clear();
+            discardedWorker = std::move(value.worker);
+        }
+        discardedWorker.reset();
+        return TRACY_EMBEDDED_CAPTURE_OK;
+    }
+
     std::filesystem::path partial;
     try {
         if (std::filesystem::exists(output)) {
@@ -158,15 +178,27 @@ int32_t finishImpl() {
             return TRACY_EMBEDDED_CAPTURE_IO_ERROR;
         }
         partial = partialPath(output);
+        {
+            std::lock_guard lock(value.mutex);
+            ++value.writerOpenCount;
+        }
         std::unique_ptr<tracy::FileWrite> writer(tracy::FileWrite::Open(
             partial.string().c_str(), tracy::FileCompression::Zstd, 3, 1));
         if (!writer) throw std::runtime_error("TracyFileWrite cannot open partial capture");
+        {
+            std::lock_guard lock(value.mutex);
+            ++value.workerWriteCount;
+        }
         worker->Write(*writer, false);
         writer.reset();
         if (!std::filesystem::exists(partial) || std::filesystem::file_size(partial) == 0) {
             throw std::runtime_error("TracyFileWrite produced an empty capture");
         }
         atomicPublish(partial, output);
+        {
+            std::lock_guard lock(value.mutex);
+            ++value.publishCount;
+        }
     } catch (const std::exception& exception) {
         std::error_code ignored;
         if (!partial.empty()) std::filesystem::remove(partial, ignored);
@@ -242,9 +274,9 @@ int32_t ___tracy_embedded_capture_configure(const char* path, size_t pathLength,
     }
 }
 
-int32_t ___tracy_embedded_capture_finish(void) {
+int32_t ___tracy_embedded_capture_finish_with_disposition(int32_t disposition) {
     try {
-        return finishImpl();
+        return finishImpl(disposition);
     } catch (const std::exception& exception) {
         setFailure(coordinator(), exception.what());
         tracy::embedded::Cancel();
@@ -254,6 +286,10 @@ int32_t ___tracy_embedded_capture_finish(void) {
         tracy::embedded::Cancel();
         return TRACY_EMBEDDED_CAPTURE_INTERNAL_ERROR;
     }
+}
+
+int32_t ___tracy_embedded_capture_finish(void) {
+    return ___tracy_embedded_capture_finish_with_disposition(TRACY_EMBEDDED_CAPTURE_SAVE);
 }
 
 uint32_t ___tracy_embedded_capture_abi_version(void) {
@@ -278,6 +314,11 @@ int32_t ___tracy_embedded_capture_get_statistics(
     statistics->server_to_client_bytes = source.serverToClientBytes;
     statistics->client_to_server_high_water = source.clientToServerHighWater;
     statistics->server_to_client_high_water = source.serverToClientHighWater;
+    auto& value = coordinator();
+    std::lock_guard lock(value.mutex);
+    statistics->writer_open_count = value.writerOpenCount;
+    statistics->worker_write_count = value.workerWriteCount;
+    statistics->publish_count = value.publishCount;
     return TRACY_EMBEDDED_CAPTURE_OK;
 }
 

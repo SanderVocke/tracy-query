@@ -227,6 +227,12 @@ if(BUILD_TESTING)
     )
     set_tests_properties(embedded-capture-native PROPERTIES TIMEOUT 60)
     add_test(
+        NAME embedded-capture-discard
+        COMMAND tracy-embedded-capture-fixture
+                ${CMAKE_CURRENT_BINARY_DIR}/embedded-discard.tracy
+                discard
+    )
+    add_test(
         NAME embedded-capture-existing-at-finish
         COMMAND tracy-embedded-capture-fixture
                 ${CMAKE_CURRENT_BINARY_DIR}/embedded-existing-at-finish.tracy
@@ -239,14 +245,15 @@ if(BUILD_TESTING)
                 expect-io-error
     )
     set_tests_properties(
-        embedded-capture-existing-at-finish embedded-capture-writer-error
+        embedded-capture-discard embedded-capture-existing-at-finish
+        embedded-capture-writer-error
         PROPERTIES TIMEOUT 60
     )
 
     add_executable(tracy-embedded-capture-errors tests/embedded_capture_errors.cpp)
     target_link_libraries(tracy-embedded-capture-errors PRIVATE TracyQuery::EmbeddedCapture)
     tracy_query_apply_warnings(tracy-embedded-capture-errors)
-    foreach(_mode IN ITEMS invalid existing duplicate no-data)
+    foreach(_mode IN ITEMS invalid existing duplicate invalid-disposition no-data)
         add_test(
             NAME embedded-capture-error-${_mode}
             COMMAND tracy-embedded-capture-errors ${_mode}
@@ -257,6 +264,7 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     find_program(CARGO_EXECUTABLE NAMES cargo)
+    set(CARGO_NEXTEST_IN_PROCESS_EXECUTABLE "" CACHE FILEPATH "cargo-nextest executable for in-process capture tests")
     if(CARGO_EXECUTABLE)
         add_test(
             NAME embedded-capture-rust-normal
@@ -284,6 +292,45 @@ if(BUILD_TESTING)
                 ENVIRONMENT "TRACY_QUERY_CMAKE_BUILD_DIR=${CMAKE_BINARY_DIR}"
         )
         set_tests_properties(embedded-capture-rust-panic PROPERTIES DEPENDS embedded-capture-rust-normal)
+
+        add_test(
+            NAME nextest-in-process-helper-unit
+            COMMAND ${CARGO_EXECUTABLE} test
+                    --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/rust/tracy-nextest-capture/Cargo.toml
+                    --locked
+        )
+        set_tests_properties(
+            nextest-in-process-helper-unit
+            PROPERTIES TIMEOUT 900 RUN_SERIAL TRUE
+        )
+
+        if(NOT CARGO_NEXTEST_IN_PROCESS_EXECUTABLE)
+            find_program(CARGO_NEXTEST_IN_PROCESS_EXECUTABLE NAMES cargo-nextest)
+        endif()
+        if(CARGO_NEXTEST_IN_PROCESS_EXECUTABLE)
+            foreach(_policy IN ITEMS off failure always)
+                add_test(
+                    NAME nextest-in-process-${_policy}
+                    COMMAND ${Python3_EXECUTABLE}
+                            ${CMAKE_CURRENT_SOURCE_DIR}/tests/nextest_in_process.py
+                            --nextest ${CARGO_NEXTEST_IN_PROCESS_EXECUTABLE}
+                            --manifest ${CMAKE_CURRENT_SOURCE_DIR}/tests/nextest-in-process-fixture/Cargo.toml
+                            --query $<TARGET_FILE:tracy-query>
+                            --work ${CMAKE_CURRENT_BINARY_DIR}/nextest-in-process-${_policy}
+                            --target-dir ${CMAKE_CURRENT_BINARY_DIR}/nextest-in-process-target
+                            --policy ${_policy}
+                )
+                set_tests_properties(
+                    nextest-in-process-${_policy}
+                    PROPERTIES
+                        TIMEOUT 1800
+                        RUN_SERIAL TRUE
+                        ENVIRONMENT "TRACY_QUERY_CMAKE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+                )
+            endforeach()
+        else()
+            message(STATUS "cargo-nextest not found; dedicated CI runs the in-process nextest contract")
+        endif()
     else()
         message(STATUS "cargo not found; Rust embedded-capture examples are not added to CTest")
     endif()

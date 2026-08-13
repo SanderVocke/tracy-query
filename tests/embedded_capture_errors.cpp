@@ -53,6 +53,16 @@ int main(int argc, char** argv) {
                           text.data(), text.size(), 4096, 16 * 1024 * 1024),
                       TRACY_EMBEDDED_CAPTURE_INVALID_STATE, "duplicate configure");
     }
+    if (mode == "invalid-disposition") {
+        const auto result = expect(
+            ___tracy_embedded_capture_finish_with_disposition(99),
+            TRACY_EMBEDDED_CAPTURE_INVALID_ARGUMENT, "invalid disposition");
+        if (result != 0) return result;
+        return ___tracy_embedded_capture_get_state() ==
+                       TRACY_EMBEDDED_CAPTURE_CONFIGURED
+                   ? 0
+                   : 1;
+    }
     if (mode == "no-data") {
         const auto result = expect(___tracy_embedded_capture_finish(),
                                    TRACY_EMBEDDED_CAPTURE_NO_DATA, "finish without client");
