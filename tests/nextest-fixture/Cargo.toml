@@ -1,8 +1,0 @@
-[package]
-name = "tracy-nextest-fixture"
-version = "0.1.0"
-edition = "2021"
-publish = false
-
-[dependencies]
-tracy-client = { version = "=0.18.4", default-features = false, features = ["enable", "ondemand", "only-localhost", "delayed-init", "manual-lifetime"] }

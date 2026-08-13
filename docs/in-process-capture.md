@@ -18,7 +18,7 @@ private Worker handlers.
 
 `TRACY_EMBEDDED_CAPTURE` selects an alternate implementation of Tracy's internal
 `Socket` interface in the custom client build. It does not alter producer-thread
-instrumentation paths. The regular CMake Tracy server and collector retain the
+instrumentation paths. The regular CMake Tracy server retains the
 upstream socket implementation.
 
 ## Memory transport
@@ -153,5 +153,5 @@ The Rust release example separately reported 1,729 client-to-server bytes
 (1,187-byte high-water mark), 129 server-to-client bytes (104-byte high-water
 mark), 13,204 KiB peak RSS, and a 13,473,128-byte executable in one run. These
 are diagnostic observations, not overhead guarantees; workload, enabled Tracy
-features, symbols, allocator, and platform dominate the result. The external
-collector remains preferable when process isolation matters.
+features, symbols, allocator, and platform dominate the result. This backend
+trades process isolation for deterministic in-process failure retention.

@@ -248,9 +248,6 @@ add_library(
 add_library(TracyQuery::TracyServer ALIAS tracy_query_tracy_server)
 
 target_compile_features(tracy_query_tracy_server PUBLIC cxx_std_20)
-# The collector control listener and all Tracy client data sockets are strictly
-# local to the machine. Compile the shared socket implementation accordingly.
-target_compile_definitions(tracy_query_tracy_server PRIVATE TRACY_ONLY_LOCALHOST)
 target_include_directories(
     tracy_query_tracy_server
     SYSTEM PUBLIC

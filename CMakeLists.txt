@@ -184,18 +184,8 @@ target_link_libraries(tracy-query PRIVATE tracy_query_core)
 tracy_query_apply_warnings(tracy_query_core)
 tracy_query_configure_executable(tracy-query)
 
-add_library(tracy_collector_core STATIC src/collector/collector.cpp)
-target_compile_features(tracy_collector_core PUBLIC cxx_std_20)
-target_include_directories(tracy_collector_core PUBLIC include)
-target_link_libraries(tracy_collector_core PRIVATE TracyQuery::TracyServer)
-tracy_query_apply_warnings(tracy_collector_core)
-
-add_executable(tracy-collector src/collector/main.cpp)
-target_link_libraries(tracy-collector PRIVATE tracy_collector_core TracyQuery::TracyServer)
-tracy_query_configure_executable(tracy-collector)
-
 include(GNUInstallDirs)
-install(TARGETS tracy-query tracy-collector RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS tracy-query RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 include(CTest)
 if(BUILD_TESTING)
@@ -374,18 +364,13 @@ if(BUILD_TESTING)
     target_link_libraries(tracy-query-unit-tests PRIVATE tracy_query_core)
     add_test(NAME unit COMMAND tracy-query-unit-tests)
 
-    add_executable(tracy-collector-unit-tests tests/collector_unit.cpp)
-    target_link_libraries(tracy-collector-unit-tests PRIVATE tracy_collector_core)
-    tracy_query_apply_warnings(tracy-collector-unit-tests)
-    add_test(NAME collector-unit COMMAND tracy-collector-unit-tests)
-
     add_library(
-        tracy_collector_tracy_client STATIC
+        tracy_loopback_control_client STATIC
         "${tracy_0131_SOURCE_DIR}/public/TracyClient.cpp"
     )
-    target_compile_features(tracy_collector_tracy_client PUBLIC cxx_std_20)
+    target_compile_features(tracy_loopback_control_client PUBLIC cxx_std_20)
     target_compile_definitions(
-        tracy_collector_tracy_client
+        tracy_loopback_control_client
         PUBLIC
             TRACY_ENABLE TRACY_ON_DEMAND TRACY_DELAYED_INIT
             TRACY_ONLY_LOCALHOST TRACY_ONLY_IPV4 TRACY_TIMER_FALLBACK
@@ -394,27 +379,16 @@ if(BUILD_TESTING)
             TRACY_NO_CRASH_HANDLER
     )
     target_include_directories(
-        tracy_collector_tracy_client
+        tracy_loopback_control_client
         SYSTEM PUBLIC "${tracy_0131_SOURCE_DIR}/public"
     )
     target_link_libraries(
-        tracy_collector_tracy_client
+        tracy_loopback_control_client
         PUBLIC Threads::Threads ${CMAKE_DL_LIBS}
     )
-    # Tracy's bundled libbacktrace reads DWARF tag values through an enum while
-    # decoding sanitizer-instrumented binaries. Keep all other UBSan checks.
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        target_compile_options(tracy_collector_tracy_client PRIVATE -fno-sanitize=enum)
+        target_compile_options(tracy_loopback_control_client PRIVATE -fno-sanitize=enum)
     endif()
-
-    add_executable(tracy-collector-live-fixture tests/fixtures/tracy_core_fixture.cpp)
-    target_link_libraries(tracy-collector-live-fixture PRIVATE tracy_collector_tracy_client)
-
-    add_executable(tracy-collector-crash-fixture tests/fixtures/tracy_crash_fixture.cpp)
-    target_link_libraries(tracy-collector-crash-fixture PRIVATE tracy_collector_tracy_client)
-
-    add_executable(tracy-collector-long-fixture tests/fixtures/tracy_long_fixture.cpp)
-    target_link_libraries(tracy-collector-long-fixture PRIVATE tracy_collector_tracy_client)
 
     add_executable(
         tracy-loopback-control-fixture
@@ -422,7 +396,7 @@ if(BUILD_TESTING)
     )
     target_link_libraries(
         tracy-loopback-control-fixture
-        PRIVATE tracy_collector_tracy_client TracyQuery::TracyServer
+        PRIVATE tracy_loopback_control_client TracyQuery::TracyServer
     )
     add_test(
         NAME embedded-capture-loopback-control
@@ -436,39 +410,6 @@ if(BUILD_TESTING)
         embedded-capture-loopback-control
         PROPERTIES TIMEOUT 60 RUN_SERIAL TRUE ENVIRONMENT "TRACY_PORT=61731"
     )
-
-    add_test(
-        NAME collector-protocol-live
-        COMMAND ${Python3_EXECUTABLE}
-                ${CMAKE_CURRENT_SOURCE_DIR}/tests/collector_integration.py
-                --collector $<TARGET_FILE:tracy-collector>
-                --query $<TARGET_FILE:tracy-query>
-                --live $<TARGET_FILE:tracy-collector-live-fixture>
-                --crash $<TARGET_FILE:tracy-collector-crash-fixture>
-                --long $<TARGET_FILE:tracy-collector-long-fixture>
-                --work ${CMAKE_CURRENT_BINARY_DIR}/collector-integration
-    )
-    set_tests_properties(collector-protocol-live PROPERTIES TIMEOUT 180)
-
-    set(CARGO_NEXTEST_EXECUTABLE "" CACHE FILEPATH "cargo-nextest executable for collector contract")
-    if(NOT CARGO_NEXTEST_EXECUTABLE)
-        find_program(CARGO_NEXTEST_EXECUTABLE NAMES cargo-nextest)
-    endif()
-    if(CARGO_NEXTEST_EXECUTABLE)
-        add_test(
-            NAME collector-nextest-contract
-            COMMAND ${Python3_EXECUTABLE}
-                    ${CMAKE_CURRENT_SOURCE_DIR}/tests/nextest_orchestrator.py
-                    --collector $<TARGET_FILE:tracy-collector>
-                    --query $<TARGET_FILE:tracy-query>
-                    --nextest ${CARGO_NEXTEST_EXECUTABLE}
-                    --fixture ${CMAKE_CURRENT_SOURCE_DIR}/tests/nextest-fixture
-                    --work ${CMAKE_CURRENT_BINARY_DIR}/nextest-integration
-        )
-        set_tests_properties(collector-nextest-contract PROPERTIES TIMEOUT 180 RUN_SERIAL TRUE)
-    else()
-        message(STATUS "cargo-nextest not found; the dedicated CI job runs the nextest contract")
-    endif()
 
     add_executable(
         tracy-query-structural-fixture-generator

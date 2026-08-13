@@ -35,16 +35,6 @@ jobs:
           path: release
           merge-multiple: true
 
-      - name: Download uncompressed collector binaries
-        uses: actions/download-artifact@v8
-        with:
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          run-id: ${{ inputs.artifact_run_id }}
-          pattern: tracy-collector-*
-          path: release
-          merge-multiple: true
-
       - name: Verify release files
         shell: bash
         run: |
@@ -56,12 +46,6 @@ jobs:
             tracy-query-macos-arm64
             tracy-query-windows-x86_64.exe
             tracy-query-windows-arm64.exe
-            tracy-collector-linux-x86_64
-            tracy-collector-linux-arm64
-            tracy-collector-macos-x86_64
-            tracy-collector-macos-arm64
-            tracy-collector-windows-x86_64.exe
-            tracy-collector-windows-arm64.exe
           )
           test "$(find release -maxdepth 1 -type f | wc -l)" -eq "${#expected[@]}"
           for file in "${expected[@]}"; do
@@ -75,15 +59,14 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
         shell: bash
         run: |
-          test "$RELEASE_TAG" = "v0.2.0"
           cat > release-notes.md <<'EOF'
-          `tracy-query` 0.2.0 reads Tracy Profiler 0.13.1 captures, and `tracy-collector` collects per-attempt in-memory captures for nextest-style test suites.
+          `tracy-query` reads Tracy Profiler 0.13.1 captures and provides failure-only in-process per-test capture for cargo-nextest.
 
-          This release provides both executables for Linux, macOS, and Windows on x86-64 and ARM64. Tracy and all bundled third-party dependencies are statically linked. Linux binaries are fully static; Windows binaries use the static MSVC runtime; macOS retains only operating-system runtime dependencies.
+          This release provides `tracy-query` for Linux, macOS, and Windows on x86-64 and ARM64. Tracy and all bundled third-party dependencies are statically linked. Linux binaries are fully static; Windows binaries use the static MSVC runtime; macOS retains only operating-system runtime dependencies.
 
-          See `README.md` for CLI and collector usage, `docs/collector-protocol.md` for the integration contract, and `SKILL.md` for the LLM-agent debugging workflow.
+          See `README.md` for CLI usage, `docs/nextest-in-process-capture.md` for per-test capture, and `SKILL.md` for the LLM-agent debugging workflow.
           EOF
-          gh release create "$RELEASE_TAG" release/tracy-query-* release/tracy-collector-* SKILL.md \
+          gh release create "$RELEASE_TAG" release/tracy-query-* SKILL.md \
             --verify-tag \
-            --title "tracy-query 0.2.0" \
+            --title "tracy-query $RELEASE_TAG" \
             --notes-file release-notes.md

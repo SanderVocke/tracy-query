@@ -55,17 +55,15 @@ A finalizer failure reports context and exits 70 rather than starting a second
 panic.
 
 Abort, fatal signals/exceptions, nextest timeout termination, `SIGKILL`, OOM,
-`_exit`, power loss, and double panic cannot reliably finalize in process. Use
-`tracy-collector` when retaining these failures is required.
+`_exit`, power loss, and double panic cannot reliably finalize in process. No
+capture is claimed for those outcomes.
 
-| Requirement | In-process nextest capture | External `tracy-collector` |
-|---|---|---|
-| Failure-only decision | Before orderly test-process exit | After attempt outcome/JUnit reconciliation |
-| Passing `()` / `Ok(())` write | No writer operation | Collector can discard the completed capture |
-| Unwind panic / `Result::Err` | Saves before preserving the native failure | Saves after the client process disconnects |
-| Abort, fatal signal, or timeout | Cannot run the finalizer; no trace claimed | Supported fallback because the collector survives the test process |
-| Runtime components | Bounded memory transport; no port or helper process | Daemon plus loopback connection |
-| Ordinary multi-test `cargo test` | Strictly inactive | Possible only with explicit external session orchestration |
+| Outcome | Retention behavior |
+|---|---|
+| Passing `()` / `Ok(())` | Orderly drain and discard; no writer operation |
+| Unwind panic / `Result::Err` | Save atomically, then preserve the native failure |
+| Abort, fatal signal, timeout, forced exit, OOM, or power loss | Finalizer cannot run; no trace claimed |
+| Ordinary multi-test `cargo test` | Strictly inactive |
 
 ## CI artifacts
 
