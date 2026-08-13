@@ -8,7 +8,7 @@ mod tests {
     use tracy_nextest_capture::tracy_capture_test;
 
     fn emit(marker: &str) {
-        let client = tracy_client::Client::running().expect("capture client must be running");
+        let Some(client) = tracy_client::Client::running() else { return; };
         let subscriber = tracing_subscriber::registry().with(tracing_tracy::TracyLayer::default());
         let dispatch = tracing::Dispatch::new(subscriber);
         tracing::dispatcher::with_default(&dispatch, || {
@@ -64,6 +64,15 @@ mod tests {
         let attempt = std::env::var("NEXTEST_ATTEMPT").ok()
             .and_then(|value| value.parse::<u32>().ok()).unwrap_or(1);
         assert!(attempt > 1, "intentional first retry failure");
+    }
+
+    #[tracy_capture_test]
+    #[ignore = "dedicated harness injects finalizer I/O failure"]
+    fn finalizer_failure_during_panic() {
+        emit("nextest-in-process:finalizer-failure-before");
+        let output = std::env::var_os("TRACY_NEXTEST_OUTPUT_DIR").unwrap();
+        std::fs::remove_dir_all(output).unwrap();
+        panic!("intentional panic before finalizer failure");
     }
 
     #[test]

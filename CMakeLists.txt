@@ -331,6 +331,22 @@ if(BUILD_TESTING)
                         ENVIRONMENT "TRACY_QUERY_CMAKE_BUILD_DIR=${CMAKE_BINARY_DIR}"
                 )
             endforeach()
+            add_test(
+                NAME nextest-in-process-failure-modes
+                COMMAND ${Python3_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tests/nextest_failure_modes.py
+                        --nextest ${CARGO_NEXTEST_IN_PROCESS_EXECUTABLE}
+                        --manifest ${CMAKE_CURRENT_SOURCE_DIR}/tests/nextest-in-process-fixture/Cargo.toml
+                        --work ${CMAKE_CURRENT_BINARY_DIR}/nextest-in-process-failure-modes
+                        --target-dir ${CMAKE_CURRENT_BINARY_DIR}/nextest-in-process-target
+            )
+            set_tests_properties(
+                nextest-in-process-failure-modes
+                PROPERTIES
+                    TIMEOUT 1800
+                    RUN_SERIAL TRUE
+                    ENVIRONMENT "TRACY_QUERY_CMAKE_BUILD_DIR=${CMAKE_BINARY_DIR}"
+            )
         else()
             message(STATUS "cargo-nextest not found; dedicated CI runs the in-process nextest contract")
         endif()

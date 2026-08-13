@@ -172,7 +172,7 @@ jobs:
         run: |
           for attempt in 1 2 3; do
             ctest --test-dir build-sanitize \
-              -R 'embedded-transport-|embedded-capture-native|embedded-capture-error|embedded-capture-rust' \
+              -R 'embedded-transport-|embedded-capture-native|embedded-capture-discard|embedded-capture-error|embedded-capture-rust|nextest-in-process-(failure|always)' \
               --output-on-failure
           done
           ctest --test-dir build-sanitize \
