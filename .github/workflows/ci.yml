@@ -128,9 +128,12 @@ jobs:
         run: |
           for attempt in 1 2 3; do
             ctest --test-dir build-sanitize \
-              -R 'collector-unit|collector-protocol-live|embedded-transport-|embedded-capture-native|embedded-capture-error|embedded-capture-rust' \
+              -R 'embedded-transport-|embedded-capture-native|embedded-capture-error|embedded-capture-rust' \
               --output-on-failure
           done
+          ctest --test-dir build-sanitize \
+            -R 'collector-unit|collector-protocol-live' \
+            --output-on-failure
 
   collector-nextest:
     name: pinned nextest architecture
