@@ -210,8 +210,14 @@ fn configuration_failure(error: String) -> ! {
 }
 
 fn finalization_failure(error: &str, payload: &(dyn Any + Send)) -> ! {
-    let kind = if payload.is::<&'static str>() || payload.is::<String>() { "string panic" } else { "non-string panic" };
-    eprintln!("capture finalization failed while handling {kind}: {error}");
+    let context = if let Some(message) = payload.downcast_ref::<&'static str>() {
+        format!("panic payload: {message}")
+    } else if let Some(message) = payload.downcast_ref::<String>() {
+        format!("panic payload: {message}")
+    } else {
+        "non-string panic payload".into()
+    };
+    eprintln!("capture finalization failed while handling original {context}: {error}");
     std::process::exit(70)
 }
 

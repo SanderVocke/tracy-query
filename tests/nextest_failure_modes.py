@@ -41,8 +41,9 @@ def main():
     env["TRACY_NEXTEST_OUTPUT_DIR"] = str(finalizer.resolve())
     failure = execute([str(args.nextest), "nextest", "run", "--manifest-path", str(args.manifest), "--profile", "tracy-in-process", "--run-ignored", "ignored-only", "-E", "test(finalizer_failure_during_panic)"], env, {100, 101})
     text = failure.stdout + failure.stderr
-    if "capture finalization failed while handling string panic" not in text or "exit code 70" not in text:
-        raise RuntimeError(f"finalizer failure did not report one controlled path:\n{text}")
+    if ("capture finalization failed while handling original panic payload: intentional panic before finalizer failure" not in text
+            or "exit code 70" not in text):
+        raise RuntimeError(f"finalizer failure did not report capture and original-panic context in one controlled path:\n{text}")
     if list(args.work.rglob("*.tracy")) or list(args.work.rglob("*.partial")):
         raise RuntimeError("failure injection published a misleading capture")
     print("in-process nextest failure-mode contract passed")

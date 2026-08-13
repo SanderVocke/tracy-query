@@ -134,6 +134,9 @@ target_link_libraries(
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(tracy_embedded_capture_native PRIVATE -fno-sanitize=enum)
 endif()
+if(BUILD_TESTING)
+    target_compile_definitions(tracy_embedded_capture_native PRIVATE TRACY_EMBEDDED_CAPTURE_TESTING=1)
+endif()
 
 add_library(
     tracy_query_core STATIC
@@ -244,9 +247,15 @@ if(BUILD_TESTING)
                 ${CMAKE_CURRENT_BINARY_DIR}/missing-embedded-parent/capture.tracy
                 expect-io-error
     )
+    add_test(
+        NAME embedded-capture-finish-timeout
+        COMMAND tracy-embedded-capture-fixture
+                ${CMAKE_CURRENT_BINARY_DIR}/embedded-finish-timeout.tracy
+                finish-timeout
+    )
     set_tests_properties(
         embedded-capture-discard embedded-capture-existing-at-finish
-        embedded-capture-writer-error
+        embedded-capture-writer-error embedded-capture-finish-timeout
         PROPERTIES TIMEOUT 60
     )
 

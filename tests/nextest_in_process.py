@@ -31,13 +31,38 @@ def occupy_ports():
     return sockets
 
 
-def validate_trace(query, trace, required):
+def expected_trace_markers(trace):
+    name = trace.name
+    cases = {
+        "passes_unit": ("tests::passes_unit", "1", "nextest-in-process:pass-unit", None),
+        "passes_result": ("tests::passes_result", "1", "nextest-in-process:pass-result", None),
+        "panic_failure": ("tests::panic_failure", "1", "nextest-in-process:panic-before", "nextest-in-process:panic-caught"),
+        "result_failure": ("tests::result_failure", "1", "nextest-in-process:result-before", "nextest-in-process:result-error"),
+        "retry_then_passes--attempt-1": ("tests::retry_then_passes", "1", "nextest-in-process:retry-before", "nextest-in-process:panic-caught"),
+        "retry_then_passes--attempt-2": ("tests::retry_then_passes", "2", "nextest-in-process:retry-before", None),
+    }
+    matches = [value for key, value in cases.items() if key in name]
+    if len(matches) != 1:
+        raise RuntimeError(f"cannot derive one exact attempt identity from {name}")
+    test, attempt, body, outcome = matches[0]
+    required = [
+        f"nextest-in-process:{test}:attempt:{attempt}", body,
+        "nextest-in-process.direct-zone", "nextest-in-process.tracing-span",
+        "nextest-in-process.tracing-event", "nextest-in-process.worker:0",
+        "nextest-in-process.worker:1",
+    ]
+    if outcome: required.append(outcome)
+    return required
+
+
+def validate_trace(query, trace):
     for command in ([query, "check", trace], [query, "range", trace], [query, "info", trace]):
         run([str(item) for item in command], env=os.environ.copy(), expected={0})
     result = run([str(query), "query", "--kind", "cpu-zone,message", str(trace)], env=os.environ.copy(), expected={0})
+    required = expected_trace_markers(trace)
     missing = [marker for marker in required if marker not in result.stdout]
     if missing:
-        raise RuntimeError(f"{trace} misses {missing}:\n{result.stdout}")
+        raise RuntimeError(f"{trace} misses exact semantic markers {missing}:\n{result.stdout}")
 
 
 def main():
@@ -88,6 +113,19 @@ def main():
         raise RuntimeError("invalid policy did not fail with an actionable pre-body diagnostic")
     if list(inactive.iterdir()): raise RuntimeError("invalid policy created capture artifacts")
 
+    pass_suite = args.work / "pass-suite"
+    pass_suite.mkdir()
+    environment["TRACY_NEXTEST_CAPTURE"] = "failure"
+    environment["TRACY_NEXTEST_OUTPUT_DIR"] = str(pass_suite.resolve())
+    pass_result = run([
+        str(args.nextest), "nextest", "run", "--manifest-path", str(args.manifest),
+        "--profile", "tracy-in-process", "-E", "test(passes_unit) | test(passes_result)"
+    ], env=environment, expected={0})
+    if "2 tests run: 2 passed" not in pass_result.stdout + pass_result.stderr:
+        raise RuntimeError("pass suite did not preserve nextest's zero-status two-pass result")
+    if list(pass_suite.iterdir()):
+        raise RuntimeError("successful nextest suite created failure-only artifacts")
+
     modes = {"off": 0, "failure": 3, "always": 6}
     if args.policy != "all":
         modes = {args.policy: modes[args.policy]}
@@ -100,20 +138,23 @@ def main():
             environment["TRACY_NEXTEST_OUTPUT_DIR"] = str(output.resolve())
             result = run([str(args.nextest), "nextest", "run", "--manifest-path", str(args.manifest), "--profile", "tracy-in-process", "--no-fail-fast"], env=environment, expected={100, 101})
             if mode != "off":
-                if "intentional nextest in-process panic" not in result.stdout + result.stderr:
+                text = result.stdout + result.stderr
+                if "intentional nextest in-process panic" not in text:
                     raise RuntimeError("nextest did not preserve original panic diagnostic")
-                if "FixtureError" not in result.stdout + result.stderr:
+                if "FixtureError" not in text:
                     raise RuntimeError("nextest did not preserve Result::Err diagnostic")
+                if "5 tests run: 3 passed (1 flaky), 2 failed, 3 skipped" not in text:
+                    raise RuntimeError("nextest did not retain expected scheduling/retry ownership")
+                for later_test in ("tests::passes_unit", "tests::passes_result"):
+                    if later_test not in text:
+                        raise RuntimeError(f"--no-fail-fast did not report later test {later_test}")
             traces = sorted(output.glob("*.tracy"))
             if len(traces) != expected_count:
                 raise RuntimeError(f"{mode} expected {expected_count} traces, got {traces}")
             if list(output.glob("*.partial")) or list(output.glob("*.tracy.*.partial")):
                 raise RuntimeError(f"{mode} left partial files")
             for trace in traces:
-                required = ["nextest-in-process:", "nextest-in-process.direct-zone", "nextest-in-process.tracing-span"]
-                if mode == "failure":
-                    required.append("nextest-in-process:panic-caught" if "panic_failure" in trace.name or "retry_then_passes" in trace.name else "nextest-in-process:result-error")
-                validate_trace(args.query, trace, required)
+                validate_trace(args.query, trace)
     finally:
         for item in occupied: item.close()
     print("in-process nextest off/failure/always contract passed")

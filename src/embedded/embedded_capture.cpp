@@ -1,6 +1,7 @@
 #include "tracy_embedded_capture/embedded_capture.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstring>
 #include <filesystem>
@@ -50,6 +51,10 @@ Coordinator& coordinator() {
     static Coordinator instance;
     return instance;
 }
+
+#ifdef TRACY_EMBEDDED_CAPTURE_TESTING
+std::atomic<bool> forceFinishTimeout = false;
+#endif
 
 void setFailure(Coordinator& value, std::string message) {
     std::lock_guard lock(value.mutex);
@@ -146,10 +151,17 @@ int32_t finishImpl(const int32_t disposition) {
     while (worker->IsConnected() && std::chrono::steady_clock::now() < deadline) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    if (worker->IsConnected()) {
+#ifdef TRACY_EMBEDDED_CAPTURE_TESTING
+    const bool timedOut = forceFinishTimeout.exchange(false, std::memory_order_relaxed);
+#else
+    constexpr bool timedOut = false;
+#endif
+    if (worker->IsConnected() || timedOut) {
         worker->Disconnect();
         tracy::embedded::Cancel();
-        setFailure(value, "embedded Worker did not terminate within 30 seconds");
+        setFailure(value, timedOut
+                              ? "embedded Worker termination timeout injected by test"
+                              : "embedded Worker did not terminate within 30 seconds");
         return TRACY_EMBEDDED_CAPTURE_TRANSPORT_ERROR;
     }
 
@@ -321,6 +333,12 @@ int32_t ___tracy_embedded_capture_get_statistics(
     statistics->publish_count = value.publishCount;
     return TRACY_EMBEDDED_CAPTURE_OK;
 }
+
+#ifdef TRACY_EMBEDDED_CAPTURE_TESTING
+void ___tracy_embedded_capture_test_force_finish_timeout(void) {
+    forceFinishTimeout.store(true, std::memory_order_relaxed);
+}
+#endif
 
 size_t ___tracy_embedded_capture_get_error(char* destination, size_t capacity) {
     auto& value = coordinator();

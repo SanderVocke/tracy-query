@@ -345,24 +345,27 @@ Dependencies: stable API and CI behavior.
   discarded terminal state, invalid/repeated operations, output races, I/O
   cleanup, and zero writer/write/publish counters for discard.
 - Rust boundary: `rust/tracy-nextest-capture{,-macros}` provides the unwind-only
-  wrappers. Unit/compile-fail tests cover strict policies, confined unique names,
-  and rejection of async, `#[should_panic]`, and unsupported return types.
+  wrappers with locked manifests, explicit provenance, and MIT/Apache license
+  files. Unit and compile-contract tests cover strict policies, confined unique
+  names, both supported signatures, and rejection of async, `#[should_panic]`,
+  unsupported return types, and `panic=abort`.
 - Process contract: `tests/nextest_in_process.py` and
   `tests/nextest_failure_modes.py` directly invoke pinned cargo-nextest 0.9.116,
   prove ordinary cargo/list/incomplete identity inertness, policy behavior,
   retries/concurrency, preserved panic and `Err`, controlled finalizer failure,
-  occupied network ports, no partials, and semantic `check`/`range`/`info`/query
-  validity. `tests/nextest_orchestrator.py` remains the abort/timeout fallback.
+  occupied network ports, no partials, and exact per-attempt semantic
+  `check`/`range`/`info`/query validity. A test-only native timeout injection
+  proves the transport-error path performs no writer/write/publish operation.
+  `tests/nextest_orchestrator.py` remains the abort/timeout fallback.
 - Dependency topology: local `cargo tree -i tracy-client-sys` reports one patched
   0.28.0 package shared by the helper, `tracy-client` 0.18.4, and
   `tracing-tracy` 0.11.4; `cargo tree -d` is empty.
 - Local final contract: four `nextest-in-process-*` CTests passed, including all
   `off`, `failure`, `always`, and injected failure modes. Helper unit and
   compile-fail tests passed.
-- CI: implementation commit `a577868` passed sanitizer, pinned external-nextest,
+- CI: final audited commit `2401a30` passed sanitizer, pinned external-nextest,
   and Linux/macOS/Windows x86-64/ARM64 jobs at
-  <https://github.com/SanderVocke/tracy-query/actions/runs/31680538015>. The final
-  plan-only evidence commit is required to pass the same workflow before closure.
+  <https://github.com/SanderVocke/tracy-query/actions/runs/31682815308>.
 - ThreadSanitizer is unavailable locally because the runtime terminates with
   `FATAL: ThreadSanitizer: unexpected memory mapping`; deterministic concurrency
   tests and CI ASan/UBSan are the supported sanitizer evidence.

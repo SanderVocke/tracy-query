@@ -14,6 +14,8 @@
 
 #include "tracy_embedded_capture/embedded_capture.h"
 
+extern "C" void ___tracy_embedded_capture_test_force_finish_timeout(void);
+
 namespace {
 
 void emit_events() {
@@ -41,7 +43,7 @@ void emit_events() {
 
 int main(int argc, char** argv) {
     if (argc < 2 || argc > 3) {
-        std::fprintf(stderr, "usage: tracy-embedded-fixture OUTPUT.tracy [discard|existing-at-finish|expect-io-error]\n");
+        std::fprintf(stderr, "usage: tracy-embedded-fixture OUTPUT.tracy [discard|existing-at-finish|expect-io-error|finish-timeout]\n");
         return 2;
     }
     const std::string mode = argc == 3 ? argv[2] : "success";
@@ -66,6 +68,8 @@ int main(int argc, char** argv) {
     emit_events();
     if (mode == "existing-at-finish") {
         std::ofstream(argv[1]) << "sentinel";
+    } else if (mode == "finish-timeout") {
+        ___tracy_embedded_capture_test_force_finish_timeout();
     }
     status = mode == "discard"
                  ? ___tracy_embedded_capture_finish_with_disposition(
@@ -97,6 +101,19 @@ int main(int argc, char** argv) {
                        !std::filesystem::exists(argv[1])
                    ? 0
                    : 32;
+    }
+    if (mode == "finish-timeout") {
+        tracy_embedded_capture_statistics statistics{};
+        ___tracy_embedded_capture_get_statistics(&statistics);
+        return status == TRACY_EMBEDDED_CAPTURE_TRANSPORT_ERROR &&
+                       ___tracy_embedded_capture_get_state() ==
+                           TRACY_EMBEDDED_CAPTURE_FAILED &&
+                       statistics.writer_open_count == 0 &&
+                       statistics.worker_write_count == 0 &&
+                       statistics.publish_count == 0 &&
+                       !std::filesystem::exists(argv[1])
+                   ? 0
+                   : 34;
     }
     if (status != TRACY_EMBEDDED_CAPTURE_OK) {
         char error[512]{};
