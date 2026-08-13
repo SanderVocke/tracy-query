@@ -194,7 +194,7 @@ jobs:
       - name: Configure and build
         run: |
           for attempt in 1 2 3; do
-            if cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DTRACY_QUERY_FULLY_STATIC=OFF; then
+            if cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DTRACY_QUERY_FULLY_STATIC=OFF -DCARGO_NEXTEST_EXECUTABLE=/tmp/cargo-nextest-bin/cargo-nextest; then
               break
             fi
             if [ "$attempt" = 3 ]; then exit 1; fi
