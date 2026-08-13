@@ -93,7 +93,7 @@ function(tracy_extensions_configure_executable target)
                 ${CMAKE_COMMAND}
                 -DTRACY_QUERY_EXECUTABLE=$<TARGET_FILE:${target}>
                 -DTRACY_QUERY_READELF=${CMAKE_READELF}
-                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyStaticExecutable.cmake
+                -P ${PROJECT_SOURCE_DIR}/cmake/VerifyStaticExecutable.cmake
             COMMENT "Verifying that ${target} has no dynamic dependencies"
             VERBATIM
         )
