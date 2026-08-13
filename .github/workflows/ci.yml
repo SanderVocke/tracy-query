@@ -78,6 +78,7 @@ jobs:
               -DCMAKE_BUILD_TYPE=Release \
               -DBUILD_TESTING=ON \
               -DCARGO_NEXTEST_IN_PROCESS_EXECUTABLE=/tmp/cargo-nextest-bin/cargo-nextest${{ matrix.suffix }} \
+              -DCARGO_NEXTEST_EXECUTABLE=/tmp/cargo-nextest-bin/cargo-nextest${{ matrix.suffix }} \
               ${{ matrix.cmake_args }}; then
               break
             fi
@@ -147,6 +148,7 @@ jobs:
               -DBUILD_TESTING=ON \
               -DTRACY_QUERY_FULLY_STATIC=OFF \
               -DCARGO_NEXTEST_IN_PROCESS_EXECUTABLE=/tmp/cargo-nextest-bin/cargo-nextest \
+              -DCARGO_NEXTEST_EXECUTABLE=/tmp/cargo-nextest-bin/cargo-nextest \
               "-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-sanitize=alignment" \
               "-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-sanitize=alignment" \
               -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined; then
@@ -169,7 +171,6 @@ jobs:
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
           TRACY_QUERY_NATIVE_SANITIZER_LIBS: asan,ubsan
           CARGO_NET_OFFLINE: "true"
-          PATH: /tmp/cargo-nextest-bin:${{ env.PATH }}
         run: |
           for attempt in 1 2 3; do
             ctest --test-dir build-sanitize \

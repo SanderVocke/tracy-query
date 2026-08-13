@@ -301,7 +301,10 @@ if(BUILD_TESTING)
         )
         set_tests_properties(
             nextest-in-process-helper-unit
-            PROPERTIES TIMEOUT 900 RUN_SERIAL TRUE
+            PROPERTIES
+                TIMEOUT 900
+                RUN_SERIAL TRUE
+                ENVIRONMENT "TRACY_QUERY_CMAKE_BUILD_DIR=${CMAKE_BINARY_DIR}"
         )
 
         if(NOT CARGO_NEXTEST_IN_PROCESS_EXECUTABLE)
@@ -415,7 +418,10 @@ if(BUILD_TESTING)
     )
     set_tests_properties(collector-protocol-live PROPERTIES TIMEOUT 180)
 
-    find_program(CARGO_NEXTEST_EXECUTABLE NAMES cargo-nextest)
+    set(CARGO_NEXTEST_EXECUTABLE "" CACHE FILEPATH "cargo-nextest executable for collector contract")
+    if(NOT CARGO_NEXTEST_EXECUTABLE)
+        find_program(CARGO_NEXTEST_EXECUTABLE NAMES cargo-nextest)
+    endif()
     if(CARGO_NEXTEST_EXECUTABLE)
         add_test(
             NAME collector-nextest-contract
