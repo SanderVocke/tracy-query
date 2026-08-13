@@ -248,6 +248,12 @@ if(BUILD_TESTING)
                 expect-io-error
     )
     add_test(
+        NAME embedded-capture-writer-open-failure
+        COMMAND tracy-embedded-capture-fixture
+                ${CMAKE_CURRENT_BINARY_DIR}/embedded-writer-open-failure.tracy
+                writer-open-failure
+    )
+    add_test(
         NAME embedded-capture-finish-timeout
         COMMAND tracy-embedded-capture-fixture
                 ${CMAKE_CURRENT_BINARY_DIR}/embedded-finish-timeout.tracy
@@ -255,7 +261,8 @@ if(BUILD_TESTING)
     )
     set_tests_properties(
         embedded-capture-discard embedded-capture-existing-at-finish
-        embedded-capture-writer-error embedded-capture-finish-timeout
+        embedded-capture-writer-error embedded-capture-writer-open-failure
+        embedded-capture-finish-timeout
         PROPERTIES TIMEOUT 60
     )
 

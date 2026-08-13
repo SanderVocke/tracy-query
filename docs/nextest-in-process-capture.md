@@ -89,11 +89,21 @@ against libtest `Termination` behavior. On a lifecycle ABI change, update
 and native save/discard fixtures together. Tracy pin upgrades also require the
 full protocol/shutdown audit in `docs/in-process-capture.md`.
 
-A representative local Linux Debug run on 2026-08-13 used four concurrent test
-processes. The first cold `off` run took about 4.8 seconds including Cargo work;
-warm `failure` and `always` suites took about 1.3 seconds each. Failure traces
-were about 1.9 KiB in this tiny fixture. These observations are not overhead
-guarantees: symbols, enabled instrumentation, channel occupancy, test duration,
-and platform dominate CPU, RSS, wall time, binary size, and trace size. Use the
-transport statistics API and an external timing/RSS tool for the consumer's
-actual workload before increasing traced-test concurrency.
+Representative local Linux Debug measurements on 2026-08-13 used
+`/run/current-system/sw/bin/time -f 'wall=%e user=%U sys=%S rss_kib=%M'` around
+pinned nextest. A warm capture-off two-pass run measured 1.01 s wall, 1.04 s user,
+0.66 s system, and 198,140 KiB process-tree peak RSS (including concurrent Cargo
+bookkeeping). A one-test unwind-failure run measured 0.82 s wall, 0.52 s user,
+0.33 s system, and 34,112 KiB peak RSS; its trace was 2,010 bytes and its Debug
+test executable was 43,311,408 bytes. The native transport statistics API in a
+representative embedded fixture reported 1,187-byte client-to-server and
+104-byte server-to-client channel high-water marks; see
+`docs/in-process-capture.md` for that measurement's full environment and
+methodology.
+
+These observations are not an overhead comparison or guarantee: the runs have
+different test counts and outcomes, and symbols, enabled instrumentation,
+channel occupancy, scheduling, test duration, Cargo state, and platform dominate
+all measurements. Repeat both policies with an external timing/RSS tool and read
+the transport statistics API for the consumer's actual workload before
+increasing traced-test concurrency.

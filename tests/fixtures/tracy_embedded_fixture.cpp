@@ -15,6 +15,7 @@
 #include "tracy_embedded_capture/embedded_capture.h"
 
 extern "C" void ___tracy_embedded_capture_test_force_finish_timeout(void);
+extern "C" void ___tracy_embedded_capture_test_force_writer_open_failure(void);
 
 namespace {
 
@@ -43,7 +44,7 @@ void emit_events() {
 
 int main(int argc, char** argv) {
     if (argc < 2 || argc > 3) {
-        std::fprintf(stderr, "usage: tracy-embedded-fixture OUTPUT.tracy [discard|existing-at-finish|expect-io-error|finish-timeout]\n");
+        std::fprintf(stderr, "usage: tracy-embedded-fixture OUTPUT.tracy [discard|existing-at-finish|expect-io-error|writer-open-failure|finish-timeout]\n");
         return 2;
     }
     const std::string mode = argc == 3 ? argv[2] : "success";
@@ -68,6 +69,8 @@ int main(int argc, char** argv) {
     emit_events();
     if (mode == "existing-at-finish") {
         std::ofstream(argv[1]) << "sentinel";
+    } else if (mode == "writer-open-failure") {
+        ___tracy_embedded_capture_test_force_writer_open_failure();
     } else if (mode == "finish-timeout") {
         ___tracy_embedded_capture_test_force_finish_timeout();
     }
@@ -101,6 +104,25 @@ int main(int argc, char** argv) {
                        !std::filesystem::exists(argv[1])
                    ? 0
                    : 32;
+    }
+    if (mode == "writer-open-failure") {
+        tracy_embedded_capture_statistics statistics{};
+        ___tracy_embedded_capture_get_statistics(&statistics);
+        const auto partialPattern = std::filesystem::path(argv[1]).filename().string() + ".";
+        bool partialExists = false;
+        const auto parent = std::filesystem::path(argv[1]).parent_path();
+        for (const auto& item : std::filesystem::directory_iterator(parent.empty() ? "." : parent)) {
+            const auto name = item.path().filename().string();
+            partialExists = partialExists ||
+                            (name.starts_with(partialPattern) && name.ends_with(".partial"));
+        }
+        return status == TRACY_EMBEDDED_CAPTURE_IO_ERROR &&
+                       statistics.writer_open_count == 1 &&
+                       statistics.worker_write_count == 0 &&
+                       statistics.publish_count == 0 &&
+                       !std::filesystem::exists(argv[1]) && !partialExists
+                   ? 0
+                   : 35;
     }
     if (mode == "finish-timeout") {
         tracy_embedded_capture_statistics statistics{};

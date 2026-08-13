@@ -366,6 +366,10 @@ Dependencies: stable API and CI behavior.
 - CI: final implementation commit `4bbdf83` passed sanitizer, pinned
   external-nextest, and Linux/macOS/Windows x86-64/ARM64 jobs at
   <https://github.com/SanderVocke/tracy-query/actions/runs/31687190388>.
+- Observer-effect evidence in `docs/nextest-in-process-capture.md` records the
+  exact timing/RSS command and representative wall, CPU, peak RSS, Debug binary,
+  failure-trace, and bounded-channel high-water measurements without claiming an
+  overhead guarantee.
 - ThreadSanitizer is unavailable locally because the runtime terminates with
   `FATAL: ThreadSanitizer: unexpected memory mapping`; deterministic concurrency
   tests and CI ASan/UBSan are the supported sanitizer evidence.

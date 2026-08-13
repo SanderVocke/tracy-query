@@ -54,6 +54,7 @@ Coordinator& coordinator() {
 
 #ifdef TRACY_EMBEDDED_CAPTURE_TESTING
 std::atomic<bool> forceFinishTimeout = false;
+std::atomic<bool> forceWriterOpenFailure = false;
 #endif
 
 void setFailure(Coordinator& value, std::string message) {
@@ -194,6 +195,11 @@ int32_t finishImpl(const int32_t disposition) {
             std::lock_guard lock(value.mutex);
             ++value.writerOpenCount;
         }
+#ifdef TRACY_EMBEDDED_CAPTURE_TESTING
+        if (forceWriterOpenFailure.exchange(false, std::memory_order_relaxed)) {
+            throw std::runtime_error("TracyFileWrite open failure injected by test");
+        }
+#endif
         std::unique_ptr<tracy::FileWrite> writer(tracy::FileWrite::Open(
             partial.string().c_str(), tracy::FileCompression::Zstd, 3, 1));
         if (!writer) throw std::runtime_error("TracyFileWrite cannot open partial capture");
@@ -337,6 +343,10 @@ int32_t ___tracy_embedded_capture_get_statistics(
 #ifdef TRACY_EMBEDDED_CAPTURE_TESTING
 void ___tracy_embedded_capture_test_force_finish_timeout(void) {
     forceFinishTimeout.store(true, std::memory_order_relaxed);
+}
+
+void ___tracy_embedded_capture_test_force_writer_open_failure(void) {
+    forceWriterOpenFailure.store(true, std::memory_order_relaxed);
 }
 #endif
 
