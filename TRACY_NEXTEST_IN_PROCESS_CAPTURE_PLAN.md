@@ -363,9 +363,9 @@ Dependencies: stable API and CI behavior.
 - Local final contract: four `nextest-in-process-*` CTests passed, including all
   `off`, `failure`, `always`, and injected failure modes. Helper unit and
   compile-fail tests passed.
-- CI: final audited commit `56daded` passed sanitizer, pinned external-nextest,
-  and Linux/macOS/Windows x86-64/ARM64 jobs at
-  <https://github.com/SanderVocke/tracy-query/actions/runs/31684734141>.
+- CI: final implementation commit `4bbdf83` passed sanitizer, pinned
+  external-nextest, and Linux/macOS/Windows x86-64/ARM64 jobs at
+  <https://github.com/SanderVocke/tracy-query/actions/runs/31687190388>.
 - ThreadSanitizer is unavailable locally because the runtime terminates with
   `FATAL: ThreadSanitizer: unexpected memory mapping`; deterministic concurrency
   tests and CI ASan/UBSan are the supported sanitizer evidence.
