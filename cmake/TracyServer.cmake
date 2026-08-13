@@ -29,12 +29,12 @@ FetchContent_MakeAvailable(tracy_0131 tracy_ppqsort)
 # Tracy socket behavior is unchanged. Keep these exact, idempotent edits here so
 # CMake and the patched tracy-client-sys build consume one reviewed patch set.
 configure_file(
-    "${CMAKE_CURRENT_LIST_DIR}/../src/embedded/TracyEmbeddedTransport.hpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../tracy-embedded-capture/src/TracyEmbeddedTransport.hpp"
     "${tracy_0131_SOURCE_DIR}/public/common/TracyEmbeddedTransport.hpp"
     COPYONLY
 )
 configure_file(
-    "${CMAKE_CURRENT_LIST_DIR}/../src/embedded/TracyEmbeddedSocket.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../tracy-embedded-capture/src/TracyEmbeddedSocket.cpp"
     "${tracy_0131_SOURCE_DIR}/public/common/TracyEmbeddedSocket.cpp"
     COPYONLY
 )

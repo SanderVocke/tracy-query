@@ -59,14 +59,15 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
         shell: bash
         run: |
+          test "$RELEASE_TAG" = "v0.4.0"
           cat > release-notes.md <<'EOF'
-          `tracy-query` reads Tracy Profiler 0.13.1 captures and provides failure-only in-process per-test capture for cargo-nextest.
+          `tracy-extensions` 0.4.0 includes `tracy-query` for Tracy Profiler 0.13.1 captures and provides failure-only in-process per-test capture for cargo-nextest.
 
           This release provides `tracy-query` for Linux, macOS, and Windows on x86-64 and ARM64. Tracy and all bundled third-party dependencies are statically linked. Linux binaries are fully static; Windows binaries use the static MSVC runtime; macOS retains only operating-system runtime dependencies.
 
-          See `README.md` for CLI usage, `docs/nextest-in-process-capture.md` for per-test capture, and `SKILL.md` for the LLM-agent debugging workflow.
+          See `README.md` for CLI usage, `tracy-nextest-capture/docs/usage.md` for per-test capture, and `tracy-query/SKILL.md` for the LLM-agent debugging workflow.
           EOF
-          gh release create "$RELEASE_TAG" release/tracy-query-* SKILL.md \
+          gh release create "$RELEASE_TAG" release/tracy-query-* tracy-query/SKILL.md \
             --verify-tag \
-            --title "tracy-query $RELEASE_TAG" \
+            --title "tracy-extensions 0.4.0" \
             --notes-file release-notes.md
