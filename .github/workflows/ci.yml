@@ -95,6 +95,17 @@ jobs:
           CARGO_NET_OFFLINE: "true"
         run: ctest --test-dir build -C Release --output-on-failure
 
+      - name: Upload in-process capture failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: tracy-nextest-diagnostics-${{ matrix.platform }}
+          path: |
+            build/nextest-in-process-*/**/*.tracy
+            build/nextest-in-process-*/*.{log,txt}
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Install, smoke-test, and name release binaries
         shell: bash
         run: |
